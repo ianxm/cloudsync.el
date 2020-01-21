@@ -1,0 +1,134 @@
+* Overview
+
+  [[http://www.gnu.org/software/emacs/][Emacs]] is a text editor.  An extensible one.  It is mainly used for
+  coding, but it can also do anything else.
+
+  [[https://github.com/ianxm/cloudsync.el][cloudsync.el]] lets you share a file (say, your .emacs or an org
+  planner file) between computers (say, work and home, or pc and
+  laptop) or between people (say, you and Gus) where you can edit
+  either copy without worrying about overwriting changes made from
+  another copy.  You can do this without cloudsync.el by putting the
+  shared file on a shared drive, or in a git repo, but cloudsync.el
+  makes it a bit easier.
+
+  The idea is to do a "fetch, merge, push" in order to sync the file.
+  By always merging in changes from the current before writing the
+  master file, we can be sure we aren't overwriting anything.  The
+  master copy of the file is stored in some cloud service, such as
+  Amazon S3, Google Drive, DropBox, etc. Currently only S3 is
+  supported.
+
+* Walkthrough
+
+  Lets say you want to sync your ~.emacs~ file between computers.  You
+  set up your cloud account and configure CloudSync as shown below.
+  Then one day you make some edits to your local and want to push them
+  to the cloud so you can get them onto your other computer.
+
+  You run ~M-x cloudsync-sync~ and choose your ~.emacs~ file.
+  CloudSync will fetch the latest file from the cloud and compare it
+  to the last ~.emacs~ file you synced from this machine (which
+  CloudSync has squirreled away for this reason).  If it matches, we
+  know there weren't any edits since the last change was made from
+  this computer, so CloudSync can safely push the lastest changes.  It
+  pushes your local to the cloud.
+
+  If it does't match, we need to merge changes.  CloudSync will open
+  up ~ediff-merge~.  If there are no conflicts, it'll update your
+  local with the merge changes and push it to the cloud.  If there are
+  conflicts it'll drop you into an ~ediff-merge~ session to resolve
+  them.  When you quit out of ~ediff-merge~, it'll copy the merged
+  changes over your local file and push it to the cloud.
+
+* Usage
+
+** Commands
+*** sync
+
+#+BEGIN_SRC
+M-x cloudsync-sync
+#+END_SRC
+
+    This prompts for which file to sync and syncs it using a "fetch,
+    merge, push" as in the walkthrough above.  Only files configured
+    in ~cloudsync-files~ are available.
+
+*** fetch
+
+#+BEGIN_SRC
+  M-x cloudsync-fetch-overwrite
+#+END_SRC
+
+    This prompts for which configured file to fetch and downloads the
+    file from the cloud, overwriting your ~local-file~.  Only files
+    configured in ~cloudsync-files~ are available.
+
+*** push
+
+#+BEGIN_SRC
+  M-x cloudsync-push-overwrite
+#+END_SRC
+
+    This prompts for which configured file to push and uploads it to
+    the cloud, overwriting your ~cloud-file~.  Only files configured
+    in ~cloudsync-files~ are available.
+
+** Programmatic interface
+
+   All three commands can also be run as lisp functions.  Each
+   function takes either zero, one or three parameters.  With zero
+   parameters it prompts for the ~local-file~, just like when run as a
+   command.  If you specify the ~local-file~ it looks up the cloud
+   configuration in ~cloudsync-files~. If you specify all params, the
+   file doesn't need an entry in ~cloudsync-files~.
+
+#+BEGIN_SRC
+(cloudsync-sync local-file)
+#+END_SRC
+
+   If you evaluate this statement, it'll sync ~local-file~, which must
+   be configured in ~cloudsync-files~.
+
+#+BEGIN_SRC
+(cloudsync-sync local-file cloud-)
+#+END_SRC
+
+   If you evaluate this statement, it'll sync ~local-file~, which must
+   be configured in ~cloudsync-files~.
+
+
+
+* Configuration
+
+** Install CloudSync
+
+   First install cloudsync.el:
+   1. Download ~cloudsync.el~ to your local machine.
+   2. Run M-x package-install-file and select ~cloudsync.el~.
+
+** Configure your cloud service
+
+*** S3
+
+    1. Create an AWS account.
+    2. Install the AWS CLI.
+    3. Create an S3 bucket.  Consider enabling Server Side Encryption.
+    4. Create an IAM user with read/write access to your bucket. Note the access key and secret.
+    5. Configure a profile in your ~~/.aws/credentials~ file for your new IAM user.
+
+** Configure the files you want to sync
+
+  You can configure the files to sync by customizing the
+  ~cloudsync-files~ variable.  This is an example that syncs two files
+  to an S3 bucket.
+
+#+BEGIN_SRC
+(setq cloudsync-files '(("~/.emacs" s3 . "s3://mybucketname/.emacs")
+                        ("~/.emacs.d/diary" s3 . "s3://mybucketname/diary")))
+#+END_SRC
+
+* TODO
+  - Support Google Drive
+  - Support DropBox
+  - Support Amazon Drive
+  - Support Evernote
