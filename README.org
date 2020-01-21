@@ -86,7 +86,7 @@ M-x cloudsync-sync
 
    If you specify the ~local-file~ it looks up the cloud configuration
    in ~cloudsync-files~.  If you evaluate this statement, it'll overwrite
-   ~\~/.emacs~ with the cloud file configured in ~cloudsync-files~.
+   ~~~/.emacs~ with the cloud file configured in ~cloudsync-files~.
 
 #+BEGIN_SRC
 (cloudsync-fetch-overwrite "~/.emacs")
@@ -94,7 +94,7 @@ M-x cloudsync-sync
 
    If you specify all params, the file doesn't need an entry in
    ~cloudsync-files~.  If you evaluate this statement, it'll overwrite
-   ~s3://mybucketname/.emacs~ with your ~\~/.emacs~.
+   ~s3://mybucketname/.emacs~ with your ~~~/.emacs~.
 
 #+BEGIN_SRC
 (cloudsync-push-overwrite "~/.emacs" 's3 "s3://mybucketname/.emacs")
@@ -116,7 +116,7 @@ M-x cloudsync-sync
     2. Install the AWS CLI.
     3. Create an S3 bucket.  Consider enabling Server Side Encryption.
     4. Create an IAM user with read/write access to your bucket. Note the access key and secret.
-    5. Configure a profile in your ~\~/.aws/credentials~ file for your new IAM user.
+    5. Configure a profile in your ~~~/.aws/credentials~ file for your new IAM user.
 
 ** Configure the files you want to sync
 
@@ -129,7 +129,7 @@ M-x cloudsync-sync
                         ("~/.emacs.d/diary" s3 . "s3://mybucketname/diary")))
 #+END_SRC
 
-* TODO
+* Todo
   - Support Google Drive
   - Support DropBox
   - Support Amazon Drive
