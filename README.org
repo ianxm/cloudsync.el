@@ -78,25 +78,27 @@ M-x cloudsync-sync
    All three commands can also be run as lisp functions.  Each
    function takes either zero, one or three parameters.  With zero
    parameters it prompts for the ~local-file~, just like when run as a
-   command.  If you specify the ~local-file~ it looks up the cloud
-   configuration in ~cloudsync-files~. If you specify all params, the
-   file doesn't need an entry in ~cloudsync-files~.
+   command.
 
 #+BEGIN_SRC
-(cloudsync-sync local-file)
+(cloudsync-sync)
 #+END_SRC
 
-   If you evaluate this statement, it'll sync ~local-file~, which must
-   be configured in ~cloudsync-files~.
+   If you specify the ~local-file~ it looks up the cloud configuration
+   in ~cloudsync-files~.  If you evaluate this statement, it'll overwrite
+   ~\~/.emacs~ with the cloud file configured in ~cloudsync-files~.
 
 #+BEGIN_SRC
-(cloudsync-sync local-file cloud-)
+(cloudsync-fetch-overwrite "~/.emacs")
 #+END_SRC
 
-   If you evaluate this statement, it'll sync ~local-file~, which must
-   be configured in ~cloudsync-files~.
+   If you specify all params, the file doesn't need an entry in
+   ~cloudsync-files~.  If you evaluate this statement, it'll overwrite
+   ~s3://mybucketname/.emacs~ with your ~\~/.emacs~.
 
-
+#+BEGIN_SRC
+(cloudsync-push-overwrite "~/.emacs" 's3 "s3://mybucketname/.emacs")
+#+END_SRC
 
 * Configuration
 
@@ -114,7 +116,7 @@ M-x cloudsync-sync
     2. Install the AWS CLI.
     3. Create an S3 bucket.  Consider enabling Server Side Encryption.
     4. Create an IAM user with read/write access to your bucket. Note the access key and secret.
-    5. Configure a profile in your ~~/.aws/credentials~ file for your new IAM user.
+    5. Configure a profile in your ~\~/.aws/credentials~ file for your new IAM user.
 
 ** Configure the files you want to sync
 
