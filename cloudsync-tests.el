@@ -1,4 +1,5 @@
 (require 'cloudsync)
+(require 'cloudsync-testparams)
 
 ;; stage test data
 (progn

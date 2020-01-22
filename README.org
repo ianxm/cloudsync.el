@@ -131,7 +131,7 @@ M-x cloudsync-sync
 #+END_SRC
 
 * Todo
-  - Support Google Drive
-  - Support DropBox
-  - Support Amazon Drive
-  - Support Evernote
+  - Add support for Google Drive
+  - Add support for DropBox
+  - Add support for Amazon Drive
+  - Add support for Evernote

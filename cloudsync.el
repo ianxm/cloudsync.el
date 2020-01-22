@@ -48,11 +48,11 @@
 
 Each list entry should look like:
 
-  (filename (cloud-service . cloud-file))
+  '(filename cloud-service . cloud-file)
 
 For example:
 
-  '(\"~/.emacs\" (s3 . \"s3://mybucketname/.emacs\"))"
+  '(\"~/.emacs\" s3 . \"s3://mybucketname/.emacs\")"
   :type '(alist :key-type file :value-type (cons string symbol))
   :group 'cloudsync)
 
@@ -145,6 +145,9 @@ CLOUD-FILE is the name of the file within the cloud service."
   ;; check for local file
   (if (not (file-exists-p local-file))
       (error "File not found: %s" local-file))
+
+  (unless (file-exists-p cloudsync-ancestor-dir)
+    (make-directory cloudsync-ancestor-dir))
 
   (setq cloudsync-local-file local-file)
   (setq cloudsync-cloud-file cloud-file)
