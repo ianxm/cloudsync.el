@@ -6,7 +6,7 @@
 ;; URL: https://github.com/ianxm/emacs-cloudsync
 ;; Version: 0.0.1
 ;; Keywords: comm
-;; Package-Requires: ((emacs "25.2.2"))
+;; Package-Requires: ((emacs "25.2"))
 
 ;; This file is not part of GNU Emacs.
 
