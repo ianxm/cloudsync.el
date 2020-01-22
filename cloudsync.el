@@ -122,6 +122,7 @@ caller."
            (setq cloud-service (cadr config-item)
                cloud-file (cddr config-item)))))))
 
+;;;###autoload
 (defun cloudsync-sync (&optional local-file cloud-service cloud-file)
   "Do a \"fetch, merge push\" to sync a local file to the cloud.
 
@@ -179,6 +180,7 @@ CLOUD-FILE is the name of the file within the cloud service."
   (message "here %s %s" (buffer-name) cloudsync-ediff-buffer-names)
   (rename-buffer (pop cloudsync-ediff-buffer-names)))
 
+;;;###autoload
 (defun cloudsync-fetch-overwrite (&optional local-file cloud-service cloud-file)
   "Fetch a file from the cloud.  OVERWRITES LOCAL-FILE!
 
@@ -205,6 +207,7 @@ fetch."
         (error "Unknown cloudsync backend: %s" cloud-service)
       (funcall (car backend) local-file cloud-file))))
 
+;;;###autoload
 (defun cloudsync-push-overwrite (&optional local-file cloud-service cloud-file)
   "Push a file to the cloud. OVERWRITES CLOUD-FILE!
 
