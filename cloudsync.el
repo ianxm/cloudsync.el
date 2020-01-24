@@ -33,7 +33,6 @@
 (require 'ediff-init)
 (require 'ediff-util)
 
-;; TODO compare merge buffer to local. only upload if there are changes.
 ;; TODO build up completion message?
 ;; TODO verify oauth flow?
 ;; TODO try to reduce global variables?
@@ -166,16 +165,23 @@ CLOUD-FILE is the name of the file within the cloud service."
        (setq cloudsync-remote-file nil)
        (error (error-message-string err))))
 
-    ;; merge, unless there's an ancestor-file and it matches remote-file
-    (if (and ancestor-file-p (cloudsync--diff cloudsync-ancestor-file cloudsync-remote-file))
-        (cloudsync--finish)
-      (add-hook 'ediff-startup-hook #'cloudsync--done-maybe)
-      (setq cloudsync-ediff-buffer-names '("local" "remote" "merge" "ancestor"))
-      (add-hook 'ediff-prepare-buffer-hook #'cloudsync--set-ediff-buffer-names)
-      (setq cloudsync-window-config (current-window-configuration))
-      (if ancestor-file-p
-          (ediff-merge-files-with-ancestor cloudsync-local-file cloudsync-remote-file cloudsync-ancestor-file)
-        (ediff-merge-files cloudsync-local-file cloudsync-remote-file)))))
+    (cond ((cloudsync--diff cloudsync-local-file cloudsync-remote-file)
+            ;; if the local file matches the remote file, do nothingn
+            (message "No change; not uploading"))
+
+           ((and ancestor-file-p (cloudsync--diff cloudsync-ancestor-file cloudsync-remote-file))
+            ;; if there's an ancestor-file which matches remote-file, no need to merge, just push the update
+            (cloudsync--finish))
+
+           (t
+            ;; else merge and push
+            (add-hook 'ediff-startup-hook #'cloudsync--done-maybe)
+            (setq cloudsync-ediff-buffer-names '("local" "remote" "merge" "ancestor"))
+            (add-hook 'ediff-prepare-buffer-hook #'cloudsync--set-ediff-buffer-names)
+            (setq cloudsync-window-config (current-window-configuration))
+            (if ancestor-file-p
+                (ediff-merge-files-with-ancestor cloudsync-local-file cloudsync-remote-file cloudsync-ancestor-file)
+              (ediff-merge-files cloudsync-local-file cloudsync-remote-file))))))
 
 (defun cloudsync--set-ediff-buffer-names ()
   (message "here %s %s" (buffer-name) cloudsync-ediff-buffer-names)
