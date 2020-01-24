@@ -4,30 +4,29 @@
 ;; stage test data
 (progn
   (unless (file-exists-p cloudsync-ancestor-dir)
-    (make-directory cloudsync-ancestor-dir))
+    (make-directory cloudsync-ancestor-dir)
+    (set-file-modes cloudsync-ancestor-dir #o700))
 
   (copy-file
    (concat cloudsync--local-testdir "ancestor.txt")
-   (concat cloudsync-ancestor-dir "local_changed.txt")
-   t)
+   (concat cloudsync-ancestor-dir "local_changed.txt") t)
+  (set-file-modes (concat cloudsync-ancestor-dir "local_changed.txt") #o600)
   (message "wrote %s" (concat cloudsync-ancestor-dir "local_changed.txt"))
 
   (copy-file
    (concat cloudsync--local-testdir "local_changed_orig.txt")
-   (concat cloudsync--local-testdir "local_changed.txt")
-   t)
+   (concat cloudsync--local-testdir "local_changed.txt") t)
   (message "wrote %s" (concat cloudsync--local-testdir "local_changed.txt"))
 
   (copy-file
    (concat cloudsync--local-testdir "local_changed_orig.txt")
-   (concat cloudsync--local-testdir "local_no_ancestor.txt")
-   t)
+   (concat cloudsync--local-testdir "local_no_ancestor.txt") t)
   (message "wrote %s" (concat cloudsync--local-testdir "local_no_ancestor.txt"))
 
   (copy-file
    (concat cloudsync--local-testdir "ancestor.txt")
-   (concat cloudsync-ancestor-dir "local_no_diff.txt")
-   t)
+   (concat cloudsync-ancestor-dir "local_no_diff.txt") t)
+  (set-file-modes (concat cloudsync-ancestor-dir "local_no_diff.txt") #o600)
   (message "wrote %s" (concat cloudsync-ancestor-dir "local_no_diff.txt"))
 
   (when (file-exists-p (concat cloudsync-ancestor-dir "local_no_ancestor.txt"))

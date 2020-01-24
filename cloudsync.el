@@ -33,9 +33,9 @@
 (require 'ediff-init)
 (require 'ediff-util)
 
+;; TODO compare merge buffer to local. only upload if there are changes.
 ;; TODO build up completion message?
 ;; TODO verify oauth flow?
-;; TODO finish readme
 ;; TODO try to reduce global variables?
 
 (defgroup cloudsync nil
@@ -148,7 +148,8 @@ CLOUD-FILE is the name of the file within the cloud service."
       (error "File not found: %s" local-file))
 
   (unless (file-exists-p cloudsync-ancestor-dir)
-    (make-directory cloudsync-ancestor-dir))
+    (make-directory cloudsync-ancestor-dir)
+    (set-file-modes cloudsync-ancestor-dir #o700))
 
   (setq cloudsync-local-file local-file)
   (setq cloudsync-cloud-file cloud-file)
@@ -295,6 +296,7 @@ any merge conflicts remain, do not upload the file."
 
   ;; overwrite ancestor-file
   (copy-file cloudsync-local-file cloudsync-ancestor-file t)
+  (set-file-modes cloudsync-ancestor-file #o600)
 
   ;; overwrite cloud-file
   (cloudsync-push-overwrite cloudsync-local-file
