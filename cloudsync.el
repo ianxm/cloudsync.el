@@ -4,7 +4,7 @@
 
 ;; Author: Ian Martins <ianxm@jhu.edu>
 ;; URL: https://github.com/ianxm/emacs-cloudsync
-;; Version: 0.0.1
+;; Version: 0.0.2
 ;; Keywords: comm
 ;; Package-Requires: ((emacs "25.2"))
 
@@ -33,7 +33,6 @@
 (require 'ediff-init)
 (require 'ediff-util)
 
-;; TODO build up completion message?
 ;; TODO verify oauth flow?
 ;; TODO try to reduce global variables?
 
@@ -74,7 +73,6 @@ Each entry looks like:
 
 (defvar cloudsync-window-config nil
   "Holds the window configuration so it can be restored after exiting ediff.")
-(make-variable-buffer-local 'cloudsync-window-config)
 
 (defvar cloudsync-cloud-service nil
   "An identifier for the cloud service.")
@@ -93,6 +91,9 @@ Each entry looks like:
 
 (defvar cloudsync-ediff-buffer-names nil
   "The names to use for buffers during ediff-merge.")
+
+(defvar cloudsync-message nil
+  "The message to give when exiting ediff to summarize what was done.")
 
 ;; TODO not sure if this will work on windows
 (defun cloudsync--diff (file1 file2)
@@ -137,7 +138,17 @@ LOCAL-FILE is the file on the local filesystem to be synced.
 CLOUD-SERVICE is the symbol for the cloud service to which this
 file is synced.  It must match a symbol in `cloudsync-backends'.
 
-CLOUD-FILE is the name of the file within the cloud service."
+CLOUD-FILE is the name of the file within the cloud service.
+
+These are the possible outcomes:
+
+| situation                    | result         |
+|------------------------------+----------------|
+| local matches remote         | do nothing     |
+| ancestor matches remote      | push local     |
+| no merge conflicts           | merge and push |
+| merge conflicts resolved     | merge and push |
+| merge conflicts not resolved | do nothing     |"
   (interactive)
 
   (cloudsync--fill-in-params)
@@ -171,20 +182,22 @@ CLOUD-FILE is the name of the file within the cloud service."
 
            ((and ancestor-file-p (cloudsync--diff cloudsync-ancestor-file cloudsync-remote-file))
             ;; if there's an ancestor-file which matches remote-file, no need to merge, just push the update
-            (cloudsync--finish))
+            (cloudsync--save-changes)
+            (message "No remote changes, pushed"))
 
            (t
             ;; else merge and push
             (add-hook 'ediff-startup-hook #'cloudsync--done-maybe)
+            (add-hook 'ediff-quit-hook #'cloudsync--exit-message t)
             (setq cloudsync-ediff-buffer-names '("local" "remote" "merge" "ancestor"))
             (add-hook 'ediff-prepare-buffer-hook #'cloudsync--set-ediff-buffer-names)
             (setq cloudsync-window-config (current-window-configuration))
             (if ancestor-file-p
                 (ediff-merge-files-with-ancestor cloudsync-local-file cloudsync-remote-file cloudsync-ancestor-file)
-              (ediff-merge-files cloudsync-local-file cloudsync-remote-file))))))
+              (ediff-merge-files cloudsync-local-file cloudsync-remote-file)))))
+  nil)
 
 (defun cloudsync--set-ediff-buffer-names ()
-  (message "here %s %s" (buffer-name) cloudsync-ediff-buffer-names)
   (rename-buffer (pop cloudsync-ediff-buffer-names)))
 
 ;;;###autoload
@@ -212,7 +225,8 @@ fetch."
   (let ((backend (alist-get cloud-service cloudsync-backends)))
     (if (null backend)
         (error "Unknown cloudsync backend: %s" cloud-service)
-      (funcall (car backend) local-file cloud-file))))
+      (funcall (car backend) local-file cloud-file)))
+  nil)
 
 ;;;###autoload
 (defun cloudsync-push-overwrite (&optional local-file cloud-service cloud-file)
@@ -239,7 +253,8 @@ write."
   (let ((backend (alist-get cloud-service cloudsync-backends)))
     (if (null backend)
         (error "Unknown cloudsync backend: %s" cloudsync-cloud-service)
-      (funcall (cdr backend) local-file cloud-file))))
+      (funcall (cdr backend) local-file cloud-file)))
+  nil)
 
 (defun cloudsync--merge-has-conflicts ()
   "Return t if any conflicts are found in the merge buffer, else nil."
@@ -254,28 +269,51 @@ user is presented with the ediff interface."
   (remove-hook 'ediff-startup-hook #'cloudsync--done-maybe)
   (if (cloudsync--merge-has-conflicts)
       (progn
-        (message "Merge had conflicts -- resolve them with ediff")
+        (message "Merge had conflicts. Resolve them with ediff. Quit ediff to continue.")
         (add-hook 'ediff-cleanup-hook #'cloudsync--done-hopefully))
-    ;; overwrite local.txt
-    (message "No conflicts, merge was successful")
-    (cloudsync--finish)
-    (cloudsync--clean-up)))
+    ;; overwrite local-file
+    (cloudsync--save-changes)
+    ;; not sure this is fine to do.  ediff just started up and now
+    ;; we're killing it without running `ediff-really-quit' to let it
+    ;; shutdown gracefully.  There may be side effects or this may not
+    ;; work on some versions.
+    (cloudsync--clean-up)
+    (message "No conflicts, merged and pushed")))
 
 (defun cloudsync--done-hopefully ()
   "If all conflicts have been resolved, complete the merge.
 This is called after the user quits from the ediff interface.  If
 any merge conflicts remain, do not upload the file."
   (remove-hook 'ediff-cleanup-hook #'cloudsync--done-hopefully)
-  (when (cloudsync--merge-has-conflicts)
-      (cloudsync--clean-up)
-      (error "Conflicts not merged, not uploading"))
-  ;; overwrite local.txt
-  (message "Merge was successful")
-  (cloudsync--finish)
-  (cloudsync--clean-up))
+  (cond ((cloudsync--merge-has-conflicts)
+         ;; conflicts not resolved
+         (setq cloudsync-message "Conflicts not resolved, not uploading")
+         (cloudsync--clean-up))
+        (t
+         ;; conflicts resolved
+         (cloudsync--save-changes)
+         (setq cloudsync-message "Conflicts resolved, merged and pushed")
+         (cloudsync--clean-up))))
+
+(defun cloudsync--save-changes ()
+  "Overwrite the ancestor file and cloud file."
+  ;; if there is a merge buffer, write it to the local-file
+  (if ediff-buffer-C
+      (with-current-buffer ediff-buffer-C
+        (write-region (point-min) (point-max) cloudsync-local-file nil)))
+
+  ;; overwrite ancestor-file
+  (copy-file cloudsync-local-file cloudsync-ancestor-file t)
+  (set-file-modes cloudsync-ancestor-file #o600)
+
+  ;; overwrite cloud-file
+  (cloudsync-push-overwrite cloudsync-local-file
+                            cloudsync-cloud-service
+                            cloudsync-cloud-file))
 
 (defun cloudsync--clean-up ()
   "Delete temp file, clean up ediff buffers and reset the window configuration."
+
   ;; delete temp remote-file
   (if (file-exists-p cloudsync-remote-file)
       (delete-file cloudsync-remote-file))
@@ -293,26 +331,10 @@ any merge conflicts remain, do not upload the file."
   (set-window-configuration cloudsync-window-config)
   (setq cloudsync-window-config nil))
 
-(defun cloudsync--finish ()
-  "Overwrite the ancestor file and cloud file."
-  ;; if there is a merge buffer, write it to the local-file
-  (if ediff-buffer-C
-      (with-current-buffer ediff-buffer-C
-        (write-region (point-min) (point-max) cloudsync-local-file nil)))
-
-  ;; overwrite ancestor-file
-  (copy-file cloudsync-local-file cloudsync-ancestor-file t)
-  (set-file-modes cloudsync-ancestor-file #o600)
-
-  ;; overwrite cloud-file
-  (cloudsync-push-overwrite cloudsync-local-file
-                            cloudsync-cloud-service
-                            cloudsync-cloud-file)
-  (add-hook 'ediff-quit-hook #'cloudsync--upload-message t))
-
-(defun cloudsync--upload-message ()
-  (message "Uploaded to the cloud")
-  (remove-hook 'ediff-quit-hook #'cloudsync--upload-message))
+(defun cloudsync--exit-message ()
+  (message cloudsync-message)
+  (setq cloudsync-message nil)
+  (remove-hook 'ediff-quit-hook #'cloudsync--exit-message))
 
 ;; --- backends
 

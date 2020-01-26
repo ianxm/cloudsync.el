@@ -13,10 +13,9 @@
 
   The idea is to do a "fetch, merge, push" in order to sync the file.
   By always merging in changes from the current before writing the
-  master file, we can be sure we aren't overwriting anything.  The
-  master copy of the file is stored in some cloud service, such as
-  Amazon S3, Google Drive, DropBox, etc. Currently only S3 is
-  supported.
+  master file, we can be sure we aren't losing anything.  The master
+  copy of the file is stored in some cloud service, such as Amazon S3,
+  Google Drive, DropBox, etc. Currently only S3 is supported.
 
 * Walkthrough
 
@@ -25,13 +24,16 @@
   Then one day you make some edits to your local and want to push them
   to the cloud so you can get them onto your other computer.
 
-  You run ~M-x cloudsync-sync~ and choose your ~.emacs~ file.
-  CloudSync will fetch the latest file from the cloud and compare it
-  to the last ~.emacs~ file you synced from this machine (which
-  CloudSync has squirreled away for this reason).  If it matches, we
-  know there weren't any edits since the last change was made from
-  this computer, so CloudSync can safely push the lastest changes.  It
-  pushes your local to the cloud.
+  You run ~M-x cloudsync-sync~ and choose your ~.emacs~ file.  First
+  CloudSync will fetch the latest file from the cloud (the cloud file)
+  and compare it to your local file.  If it matches there's nothing to
+  update so it stops there.
+
+  Then it compares the cloud file to the last ~.emacs~ file you synced
+  from this machine (the ancestor file, which CloudSync has squirreled
+  away for this reason).  If it matches, we know that all edits since
+  the last sync were made from this computer, so CloudSync can safely
+  push the lastest changes.  It pushes your local to the cloud.
 
   If it does't match, we need to merge changes.  CloudSync will open
   up ~ediff-merge~.  If there are no conflicts, it'll update your
@@ -138,6 +140,7 @@ M-x cloudsync-sync
 (setq cloudsync-files '(("~/.emacs" s3 . "s3://mybucketname/.emacs")
                         ("~/.emacs.d/diary" s3 . "s3://mybucketname/diary")))
 #+END_SRC
+
 
 * Todo
   - Add support for Google Drive

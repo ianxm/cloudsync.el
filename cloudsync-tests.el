@@ -25,6 +25,17 @@
 
   (copy-file
    (concat cloudsync--local-testdir "ancestor.txt")
+   (concat cloudsync-ancestor-dir "local_one_change.txt") t)
+  (set-file-modes (concat cloudsync-ancestor-dir "local_one_change.txt") #o600)
+  (message "wrote %s" (concat cloudsync-ancestor-dir "local_one_change.txt"))
+
+  (copy-file
+   (concat cloudsync--local-testdir "local_one_change_orig.txt")
+   (concat cloudsync--local-testdir "local_one_change.txt") t)
+  (message "wrote %s" (concat cloudsync--local-testdir "local_one_changed.txt"))
+
+  (copy-file
+   (concat cloudsync--local-testdir "ancestor.txt")
    (concat cloudsync-ancestor-dir "local_no_diff.txt") t)
   (set-file-modes (concat cloudsync-ancestor-dir "local_no_diff.txt") #o600)
   (message "wrote %s" (concat cloudsync-ancestor-dir "local_no_diff.txt"))
@@ -78,10 +89,15 @@
                 's3
                 (concat cloudsync--remote-testdir "remote.txt"))
 
-;; fast forward (needs ancestor)
+;; no remote changes, just push local
 (cloudsync-sync (concat cloudsync--local-testdir "local_changed.txt")
                 's3
                 (concat cloudsync--remote-testdir "remote.txt"))
+
+;; fast forward (both changed but no conflict; needs ancestor)
+(cloudsync-sync (concat cloudsync--local-testdir "local_one_change.txt")
+                's3
+                (concat cloudsync--remote-testdir "remote_conflict.txt"))
 
 ;; merge (needs ancestor)
 (cloudsync-sync (concat cloudsync--local-testdir "local_changed.txt")
