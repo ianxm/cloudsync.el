@@ -25,15 +25,16 @@
   to the cloud so you can get them onto your other computer.
 
   You run ~M-x cloudsync-sync~ and choose your ~.emacs~ file.  First
-  CloudSync will fetch the latest file from the cloud (the cloud file)
-  and compare it to your local file.  If it matches there's nothing to
-  update so it stops there.
+  CloudSync will fetch the latest file from the cloud (the remote
+  file) and compare it to your local file.  If it matches there's
+  nothing to update so it stops there.
 
-  Then it compares the cloud file to the last ~.emacs~ file you synced
-  from this machine (the ancestor file, which CloudSync has squirreled
-  away for this reason).  If it matches, we know that all edits since
-  the last sync were made from this computer, so CloudSync can safely
-  push the lastest changes.  It pushes your local to the cloud.
+  Then it compares the remote file to the last ~.emacs~ file you
+  synced from this machine (the ancestor file, which CloudSync has
+  squirreled away for this reason).  If it matches, we know that all
+  edits since the last sync were made from this computer, so CloudSync
+  can safely push the lastest changes.  It pushes your local to the
+  cloud.
 
   If it does't match, we need to merge changes.  CloudSync will open
   up ~ediff-merge~.  If there are no conflicts, it'll update your
@@ -41,6 +42,32 @@
   conflicts it'll drop you into an ~ediff-merge~ session to resolve
   them.  When you quit out of ~ediff-merge~, it'll copy the merged
   changes over your local file and push it to the cloud.
+
+** Possible Outcomes
+
+   The status line message CloudSync displays when it exits explains
+   what was done.  These are the possible messages and their meanings:
+
+   - No changes, no update needed :: The local file and remote file
+        were identical.  CloudSync didn't update either.
+   - No remote changes, pushed local changes :: Only the local file
+        was changed.  CloudSync updated the remote file to match it.
+   - No local changes, pulled remote changes :: Only the remote file
+        was changed.  CloudSync updated the local file to match it.
+   - No local changes after merge, pulled remote changes :: After
+        merging, only the remote file was changed.  CloudSync updated
+        the local file to match it.
+   - Both changed but no conflicts, updated local and remote :: Both
+        files were changed but there were no conflicts.  CloudSync
+        accepted all changes and updated both the local and remote
+        files.
+   - Both changed and conflicts were resolved, updated local and remote :: Both
+        files were changed and there were conflicts, but you manually
+        resolved them in ediff.  CloudSync updated both the local and
+        remote files.
+   - Both changed and conflicts were not resolved, not updating :: Both
+        files were changed and there were conflicts, and they were not
+        resolved.  CloudSync didn't modify the local or remote files.
 
 * Usage
 
@@ -73,9 +100,9 @@ M-x cloudsync-sync
 #+END_SRC
 
     This prompts for which configured file to push and uploads it to
-    the cloud, overwriting your ~cloud-file~.  Only files configured
-    in ~cloudsync-files~ are available.  THIS OVERWRITES THE CLOUD
-    FILE WITHOUT MERGING!
+    the cloud, overwriting your remote file.  Only files configured in
+    ~cloudsync-files~ are available.  THIS OVERWRITES THE REMOTE FILE
+    WITHOUT MERGING!
 
 ** Programmatic interface
 
@@ -95,7 +122,7 @@ M-x cloudsync-sync
 
    If you specify the ~local-file~ it looks up the cloud configuration
    in ~cloudsync-files~.  If you evaluate this statement, it'll
-   overwrite ~/home/user/.emacs~ with the cloud file configured in
+   overwrite ~/home/user/.emacs~ with the remote file configured in
    ~cloudsync-files~.
 
 #+BEGIN_SRC
@@ -140,7 +167,6 @@ M-x cloudsync-sync
 (setq cloudsync-files '(("~/.emacs" s3 . "s3://mybucketname/.emacs")
                         ("~/.emacs.d/diary" s3 . "s3://mybucketname/diary")))
 #+END_SRC
-
 
 * Todo
   - Add support for Google Drive
