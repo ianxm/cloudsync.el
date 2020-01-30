@@ -4,7 +4,7 @@
 
 ;; Author: Ian Martins <ianxm@jhu.edu>
 ;; URL: https://github.com/ianxm/emacs-cloudsync
-;; Version: 0.0.3
+;; Version: 0.0.4
 ;; Keywords: comm
 ;; Package-Requires: ((emacs "25.2"))
 
@@ -170,21 +170,33 @@ These are the possible outcomes:
   (setq cloudsync-remote-file (make-temp-file cloudsync-tempfile-prefix))
 
   ;; check for ancestor
-  (let* ((ancestor-file-p (file-exists-p cloudsync-ancestor-file)))
+  (let* ((ancestor-file-p (file-exists-p cloudsync-ancestor-file))
+         remote-file-p)
     (condition-case err
         (cloudsync-fetch-overwrite cloudsync-remote-file cloudsync-cloud-service cloudsync-cloud-file)
       (error
-       (delete-file cloudsync-remote-file)
-       (setq cloudsync-remote-file nil)
-       (error (error-message-string err))))
+       ;; "does not exist" just means this is the initial sync
+       (unless (string-match "Key .* does not exist" (error-message-string err))
+         ;; problem accessing cloud service
+         (setq remote-file-p t)
+         (delete-file cloudsync-remote-file)
+         (setq cloudsync-remote-file nil)
+         (error (error-message-string err)))))
 
-    (cond ((cloudsync--diff cloudsync-local-file cloudsync-remote-file)
-            ;; if the local file matches the remote file, do nothingn
+    (cond ((and remote-file-p
+                (cloudsync--diff cloudsync-local-file cloudsync-remote-file))
+            ;; if the local file matches the remote file, do nothing
             (message "No changes; no update needed"))
 
-           ((and ancestor-file-p (cloudsync--diff cloudsync-ancestor-file cloudsync-remote-file))
-            ;; if there's an ancestor-file which matches remote-file, no need to merge, just push the update
+          ((or (not remote-file-p)
+               (and ancestor-file-p
+                    (cloudsync--diff cloudsync-ancestor-file cloudsync-remote-file)))
+            ;; if there's no remote file, or there is an ancestor-file
+            ;; and remote-file and they match, no need to merge, just
+            ;; push the update and remove the temp file
             (cloudsync--save-changes)
+            (if (file-exists-p cloudsync-remote-file)
+                (delete-file cloudsync-remote-file))
             (message "No remote changes, pushed local changes"))
 
            ((and ancestor-file-p (cloudsync--diff cloudsync-ancestor-file cloudsync-local-file))
@@ -192,9 +204,11 @@ These are the possible outcomes:
             (cloudsync-fetch-overwrite cloudsync-local-file
                                        cloudsync-cloud-service
                                        cloudsync-cloud-file)
-            ;; overwrite ancestor-file
+            ;; overwrite ancestor-file and remove the temp file
             (copy-file cloudsync-local-file cloudsync-ancestor-file t)
             (set-file-modes cloudsync-ancestor-file #o600)
+            (if (file-exists-p cloudsync-remote-file)
+                (delete-file cloudsync-remote-file))
             (message "No local changes, pulled remote changes"))
 
            (t
