@@ -3,8 +3,8 @@
 ;; Copyright (C) 2020 Ian Martins
 
 ;; Author: Ian Martins <ianxm@jhu.edu>
-;; URL: https://github.com/ianxm/emacs-cloudsync
-;; Version: 0.0.4
+;; URL: https://github.com/ianxm/cloudsync.el
+;; Version: 0.0.5
 ;; Keywords: comm
 ;; Package-Requires: ((emacs "25.2"))
 
@@ -33,7 +33,6 @@
 (require 'ediff-init)
 (require 'ediff-util)
 
-;; TODO verify oauth flow?
 ;; TODO try to reduce global variables?
 
 (defgroup cloudsync nil
@@ -46,30 +45,40 @@
 
 Each list entry should look like:
 
-  '(filename cloud-service . cloud-file)
+  '(filename backend . cloud-file)
 
 For example:
 
-  '(\"~/.emacs\" s3 . \"s3://mybucketname/.emacs\")"
+  '((\"~/.emacs\" s3 . \"s3://mybucketname/.emacs\")
+    (\"~/diary\" rclone . \"gdrive:diary\"))
+
+The first configuration allows you to sync your .emacs file to S3
+using the AWS CLI.  You must have already created and configured
+your S3 bucket and installed and configured the AWS CLI.
+
+The second configuration allows you to sync your diary file to
+Google Drive (or any other cloud service rclone supports).  You
+must have already installed and configured rclone."
   :type '(alist :key-type file :value-type (cons string symbol))
   :group 'cloudsync)
 
 (defconst cloudsync-ancestor-dir (file-name-as-directory
                                   (concat (file-name-as-directory user-emacs-directory) "cloudsync"))
   "The directory where we save ancestor files.
-Every time we push a file to the cloud we keep a copy of it here.  We use it to
-determine which changes, if any, were made to the cloud file from
-another machine.")
+Every time we push a file to the cloud we keep a copy of it here.
+We use it to determine which changes, if any, were made to the
+cloud file from another machine.")
 
-(defconst cloudsync-tempfile-prefix "cloudsync"
-  "The prefix to use when we save cloud files to the local filesystem.")
+(defconst cloudsync-tempfile-dir (file-name-as-directory (concat temporary-file-directory "cloudsync"))
+  "The temp subdirectory to put cloud files when we copy them to the local filesystem.")
 
-(defvar cloudsync-backends '((s3 . (cloudsync--fetch-s3 . cloudsync--push-s3)))
+(defvar cloudsync-backends '((s3 . (cloudsync--fetch-s3 cloudsync--push-s3 cloudsync--delete-s3))
+                             (rclone . (cloudsync--fetch-rclone cloudsync--push-rclone cloudsync--delete-rclone)))
   "An alist of cloud service backends.
 
 Each entry looks like:
 
-  (symbol . (fetch-fcn . push-fcn))")
+  (symbol . (fetch-fcn push-fcn delete-fcn))")
 
 (defvar cloudsync-window-config nil
   "Holds the window configuration so it can be restored after exiting ediff.")
@@ -94,6 +103,8 @@ Each entry looks like:
 
 (defvar cloudsync-message nil
   "The message to give when exiting ediff to summarize what was done.")
+
+(define-error 'cloudsync--file-not-found "The cloudfile was not found")
 
 ;; TODO not sure if this will work on windows
 (defun cloudsync--diff (file1 file2)
@@ -145,6 +156,8 @@ These are the possible outcomes:
 | situation                    | result         |
 |------------------------------+----------------|
 | local matches remote         | do nothing     |
+| no remote file               | push local     |
+| no local file                | pull remote    |
 | ancestor matches remote      | push local     |
 | ancestor matches local       | pull remote    |
 | no merge conflicts           | merge and push |
@@ -155,63 +168,78 @@ These are the possible outcomes:
 
   (cloudsync--fill-in-params)
 
-  ;; check for local file
-  (if (not (file-exists-p local-file))
-      (error "File not found: %s" local-file))
-
   (unless (file-exists-p cloudsync-ancestor-dir)
     (make-directory cloudsync-ancestor-dir)
     (set-file-modes cloudsync-ancestor-dir #o700))
+  ;; TODO consider naming the temp dir with the user's name and making it private
+  (unless (file-exists-p cloudsync-tempfile-dir)
+    (make-directory cloudsync-tempfile-dir))
 
   (setq cloudsync-local-file local-file)
   (setq cloudsync-cloud-file cloud-file)
   (setq cloudsync-cloud-service cloud-service)
   (setq cloudsync-ancestor-file (concat cloudsync-ancestor-dir (file-name-nondirectory cloudsync-local-file)))
-  (setq cloudsync-remote-file (make-temp-file cloudsync-tempfile-prefix))
+  (setq cloudsync-remote-file (concat cloudsync-tempfile-dir (file-name-nondirectory cloudsync-local-file)))
 
   ;; check for ancestor
   (let* ((ancestor-file-p (file-exists-p cloudsync-ancestor-file))
+         (local-file-p (file-exists-p local-file))
          remote-file-p)
     (condition-case err
-        (cloudsync-fetch-overwrite cloudsync-remote-file cloudsync-cloud-service cloudsync-cloud-file)
+        (progn (cloudsync-fetch-overwrite cloudsync-remote-file cloudsync-cloud-service cloudsync-cloud-file)
+               (setq remote-file-p t))
+      (cloudsync--file-not-found) ; do nothing
       (error
-       ;; "does not exist" just means this is the initial sync
-       (unless (string-match "Key .* does not exist" (error-message-string err))
-         ;; problem accessing cloud service
-         (setq remote-file-p t)
-         (delete-file cloudsync-remote-file)
-         (setq cloudsync-remote-file nil)
-         (error (error-message-string err)))))
+       ;; problem accessing cloud service
+       (if (file-exists-p cloudsync-remote-file)
+           (delete-file cloudsync-remote-file))
+       (setq cloudsync-remote-file nil)
+       (error (error-message-string err))))
 
-    (cond ((and remote-file-p
+    (cond ((and (not local-file-p) (not remote-file-p))
+           ;; no local file and no remote file, do nothing
+           (error "Neither local or remote file exists, nothing to sync"))
+
+          ((and remote-file-p
+                local-file-p
                 (cloudsync--diff cloudsync-local-file cloudsync-remote-file))
-            ;; if the local file matches the remote file, do nothing
-            (message "No changes; no update needed"))
+           ;; if the local file and remote file both exist and the
+           ;; local file matches the remote file, do nothing
+           (if (file-exists-p cloudsync-remote-file)
+               (delete-file cloudsync-remote-file))
+           (message "No changes; no update needed"))
 
           ((or (not remote-file-p)
                (and ancestor-file-p
                     (cloudsync--diff cloudsync-ancestor-file cloudsync-remote-file)))
-            ;; if there's no remote file, or there is an ancestor-file
-            ;; and remote-file and they match, no need to merge, just
-            ;; push the update and remove the temp file
+            ;; if there's no remote file, or there is an ancestor file
+            ;; and remote file and they match, no need to merge, just
+            ;; push the update
             (cloudsync--save-changes)
-            (if (file-exists-p cloudsync-remote-file)
-                (delete-file cloudsync-remote-file))
-            (message "No remote changes, pushed local changes"))
+            (if (not (file-exists-p cloudsync-remote-file))
+                (message "No remote file, pushed local file")
+              (delete-file cloudsync-remote-file)
+              (message "No remote changes, pushed local changes")))
 
-           ((and ancestor-file-p (cloudsync--diff cloudsync-ancestor-file cloudsync-local-file))
-            ;; if there's an ancestor-file which matches local-file, no need to merge, just pull the update
-            (cloudsync-fetch-overwrite cloudsync-local-file
-                                       cloudsync-cloud-service
-                                       cloudsync-cloud-file)
-            ;; overwrite ancestor-file and remove the temp file
-            (copy-file cloudsync-local-file cloudsync-ancestor-file t)
-            (set-file-modes cloudsync-ancestor-file #o600)
-            (if (file-exists-p cloudsync-remote-file)
-                (delete-file cloudsync-remote-file))
-            (message "No local changes, pulled remote changes"))
+          ((or (not local-file-p)
+               (and ancestor-file-p
+                    (cloudsync--diff cloudsync-ancestor-file cloudsync-local-file)))
+            ;; if there's no local file, or there is an ancestor file
+            ;; which matches local file, no need to merge, just pull
+            ;; the update
+           (cloudsync-fetch-overwrite cloudsync-local-file
+                                      cloudsync-cloud-service
+                                      cloudsync-cloud-file)
+           ;; overwrite ancestor-file and remove the temp file
+           (copy-file cloudsync-local-file cloudsync-ancestor-file t)
+           (set-file-modes cloudsync-ancestor-file #o600)
+           (if (file-exists-p cloudsync-remote-file)
+               (delete-file cloudsync-remote-file))
+           (if local-file-p
+               (message "No local changes, pulled remote changes")
+             (message "No local file, pulled remote file")))
 
-           (t
+          (t
             ;; else merge and push
             (add-hook 'ediff-startup-hook #'cloudsync--done-maybe)
             (add-hook 'ediff-quit-hook #'cloudsync--exit-message t)
@@ -251,7 +279,7 @@ fetch."
   (let ((backend (alist-get cloud-service cloudsync-backends)))
     (if (null backend)
         (error "Unknown cloudsync backend: %s" cloud-service)
-      (funcall (car backend) local-file cloud-file)))
+      (funcall (nth 0 backend) local-file cloud-file)))
   nil)
 
 ;;;###autoload
@@ -279,7 +307,24 @@ write."
   (let ((backend (alist-get cloud-service cloudsync-backends)))
     (if (null backend)
         (error "Unknown cloudsync backend: %s" cloudsync-cloud-service)
-      (funcall (cdr backend) local-file cloud-file)))
+      (funcall (nth 1 backend) local-file cloud-file)))
+  nil)
+
+;;;###autoload
+(defun cloudsync-delete (cloud-service cloud-file)
+  "Delete a file from the cloud.
+
+CLOUD-SERVICE is the symbol for the cloud service to which this
+file is synced.  It must match a symbol in `cloudsync-backends'.
+
+CLOUD-FILE is the name of the file within the cloud service to
+write."
+  (interactive)
+
+  (let ((backend (alist-get cloud-service cloudsync-backends)))
+    (if (null backend)
+        (error "Unknown cloudsync backend: %s" cloudsync-cloud-service)
+      (funcall (nth 2 backend) cloud-file)))
   nil)
 
 (defun cloudsync--merge-has-conflicts ()
@@ -333,7 +378,8 @@ the remote, else return nil."
       (with-current-buffer ediff-buffer-C
         (write-region (point-min) (point-max) cloudsync-local-file nil)))
 
-  (if (cloudsync--diff cloudsync-local-file cloudsync-remote-file)
+  (if (and (file-exists-p cloudsync-remote-file)
+           (cloudsync--diff cloudsync-local-file cloudsync-remote-file))
       nil
     ;; overwrite ancestor-file
     (copy-file cloudsync-local-file cloudsync-ancestor-file t)
@@ -370,7 +416,7 @@ the remote, else return nil."
   (setq cloudsync-message nil)
   (remove-hook 'ediff-quit-hook #'cloudsync--exit-message))
 
-;; --- backends
+;; --- aws s3 backend
 
 (defgroup cloudsync-s3 nil
   "Options for customizing how CloudSync connects to S3."
@@ -407,10 +453,14 @@ CLOUD-FILE is the S3 object, which should like \"s3://bucketname/path/filename.e
   (with-temp-buffer
     (let* ((params (cloudsync--s3-params))
            (command (format "aws %s s3 cp %s %s" params cloud-file fname))
-           (success (call-process-shell-command command nil t)))
+           (success (call-process-shell-command command nil t))
+           error-msg)
       (if (= 0 success)
           (message "Feched file from S3: %s" cloud-file)
-        (error "Problem downloading from S3: %s" (buffer-substring (point-min) (point-max)))))))
+        (setq error-msg (buffer-substring (point-min) (point-max)))
+        (if (string-match "Key .* does not exist" error-msg)
+            (signal 'cloudsync--file-not-found error-msg) ; this is the initial sync
+          (error "Problem downloading from S3: %s" error-msg))))))
 
 (defun cloudsync--push-s3 (fname cloud-file)
   "Push local file FNAME to S3 as CLOUD-FILE.
@@ -424,7 +474,70 @@ CLOUD-FILE looks like \"s3://bucketname/path/filename.ext\"."
           (message "Pushed file to S3: %s" cloud-file)
         (error "Problem uploading to S3: %s" (buffer-substring (point-min) (point-max)))))))
 
-(provide 'cloudsync)
+(defun cloudsync--delete-s3 (cloud-file)
+  "Delete CLOUD-FILE from S3.
+CLOUD-FILE looks like \"s3://bucketname/path/filename.ext\"."
+  (with-temp-buffer
+    (let* ((params (cloudsync--s3-params))
+           (command (format "aws %s s3 rm %s" params cloud-file))
+           (success (call-process-shell-command command nil t)))
+      (if (= 0 success)
+          (message "Deleted file from S3: %s" cloud-file)
+        (error "Problem deleting from S3: %s" (buffer-substring (point-min) (point-max)))))))
+
+
+;; --- rclone backend (google drive, dropbox, MS OneDrive, aws s3, etc)
+
+;; (defgroup cloudsync-rclone nil
+;;   "Options for customizing how CloudSync connects using rclone."
+;;   :group 'cloudsync
+;;   :tag "CloudSync Rclone")
+
+(defun cloudsync--fetch-rclone (fname cloud-file)
+  "Fetch using rclone and save to the local filesystem as FNAME.
+CLOUD-FILE is the full remote path, which should like
+\"remote:path/filename.ext\".  The local and remote paths may
+differ but the filenames must be the same."
+  (with-temp-buffer
+    (let ((local-fname (file-name-nondirectory fname))
+          (remote-fname (file-name-nondirectory cloud-file)))
+      (unless (string= local-fname remote-fname)
+        (error (format "Local and remote filenames differ: %s %s" local-fname remote-fname))))
+    (let* ((command (format "rclone copy %s %s" cloud-file (file-name-directory fname)))
+           (success (call-process-shell-command command nil t))
+           error-msg)
+      (if (= 0 success)
+          (message "Feched file using rclone: %s" cloud-file)
+        (setq error-msg (buffer-substring (point-min) (point-max)))
+        (if (string-match "Failed to copy: .* directory not found" error-msg)
+            (signal 'cloudsync--file-not-found error-msg) ; this is the initial sync
+          (error "Problem downloading using rclone: %s" error-msg))))))
+
+(defun cloudsync--push-rclone (fname cloud-file)
+  "Push local file FNAME using rclone to CLOUD-FILE.
+CLOUD-FILE looks like \"reomte:path/filename.ext\".  The local
+and remote paths may differ but the filenames must be the same."
+  (with-temp-buffer
+    (let ((local-fname (file-name-nondirectory fname))
+          (remote-fname (file-name-nondirectory cloud-file)))
+      (unless (string= local-fname remote-fname)
+        (error (format "Local and remote filenames differ: %s %s" local-fname remote-fname))))
+    (let* ((command (format "rclone copy %s %s" fname (file-name-directory cloud-file)))
+           (success (call-process-shell-command command nil t)))
+      (if (= 0 success)
+          (message "Pushed file using rclone: %s" cloud-file)
+        (error "Problem uploading using rclone: %s" (buffer-substring (point-min) (point-max)))))))
+
+(defun cloudsync--delete-rclone (cloud-file)
+  "Push local file FNAME using rclone to CLOUD-FILE.
+CLOUD-FILE looks like \"reomte:path/filename.ext\".  The local
+and remote paths may differ but the filenames must be the same."
+  (with-temp-buffer
+    (let* ((command (format "rclone delete %s" cloud-file))
+           (success (call-process-shell-command command nil t)))
+      (if (= 0 success)
+          (message "Deleted file using rclone: %s" cloud-file)
+        (error "Problem deleting using rclone: %s" (buffer-substring (point-min) (point-max)))))))
 
 (provide 'cloudsync)
 

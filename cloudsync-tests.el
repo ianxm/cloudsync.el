@@ -1,110 +1,44 @@
 (require 'cloudsync)
 (require 'cloudsync-testparams)
+(require 'cloudsync-testhelpers)
 
-;; stage test data
-(progn
-  (unless (file-exists-p cloudsync-ancestor-dir)
-    (make-directory cloudsync-ancestor-dir)
-    (set-file-modes cloudsync-ancestor-dir #o700))
+;; failure: unknown cloud service
+(cloudsync-sync (concat cloudsync--local-testdir "original.txt") 'fail "remotefile")
 
-  (copy-file
-   (concat cloudsync--local-testdir "ancestor.txt")
-   (concat cloudsync-ancestor-dir "local_changed.txt") t)
-  (set-file-modes (concat cloudsync-ancestor-dir "local_changed.txt") #o600)
-  (message "wrote %s" (concat cloudsync-ancestor-dir "local_changed.txt"))
+;; failure: local-file not found
+(cloudsync-sync "/some/local/file1.txt" 'rclone "remote:dir/file2.txt")
 
-  (copy-file
-   (concat cloudsync--local-testdir "local_changed_orig.txt")
-   (concat cloudsync--local-testdir "local_changed.txt") t)
-  (message "wrote %s" (concat cloudsync--local-testdir "local_changed.txt"))
+;; failure: rclone filenames don't matche
+(cloudsync-sync (concat cloudsync--local-testdir "original.txt") 'rclone "remote:dir/original2.txt")
 
-  (copy-file
-   (concat cloudsync--local-testdir "local_changed_orig.txt")
-   (concat cloudsync--local-testdir "local_no_ancestor.txt") t)
-  (message "wrote %s" (concat cloudsync--local-testdir "local_no_ancestor.txt"))
+;; files match, do nothing
+(cloudsync--test-no-diff 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-no-diff 'rclone cloudsync--test-goog-cloud-file)
 
-  (copy-file
-   (concat cloudsync--local-testdir "ancestor.txt")
-   (concat cloudsync-ancestor-dir "local_one_change.txt") t)
-  (set-file-modes (concat cloudsync-ancestor-dir "local_one_change.txt") #o600)
-  (message "wrote %s" (concat cloudsync-ancestor-dir "local_one_change.txt"))
+;; no remote changes, push local changes
+(cloudsync--test-no-remote-changes 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-no-remote-changes 'rclone cloudsync--test-goog-cloud-file)
 
-  (copy-file
-   (concat cloudsync--local-testdir "local_one_change_orig.txt")
-   (concat cloudsync--local-testdir "local_one_change.txt") t)
-  (message "wrote %s" (concat cloudsync--local-testdir "local_one_changed.txt"))
+;; no remote file, push local file
+(cloudsync--test-no-remote-file 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-no-remote-file 'rclone cloudsync--test-goog-cloud-file)
 
-  (copy-file
-   (concat cloudsync--local-testdir "ancestor.txt")
-   (concat cloudsync-ancestor-dir "local_no_diff.txt") t)
-  (set-file-modes (concat cloudsync-ancestor-dir "local_no_diff.txt") #o600)
-  (message "wrote %s" (concat cloudsync-ancestor-dir "local_no_diff.txt"))
+;; no local changes, pull remote changes
+(cloudsync--test-no-local-changes 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-no-local-changes 'rclone cloudsync--test-goog-cloud-file)
 
-  (when (file-exists-p (concat cloudsync-ancestor-dir "local_no_ancestor.txt"))
-    (delete-file (concat cloudsync-ancestor-dir "local_no_ancestor.txt"))
-    (message "deleted %s" (concat cloudsync-ancestor-dir "local_no_ancestor.txt")))
+;; no local file, pull remote file
+(cloudsync--test-no-local-file 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-no-local-file 'rclone cloudsync--test-goog-cloud-file)
 
-  (cloudsync-push-overwrite (concat cloudsync--local-testdir "remote.txt")
-                            's3
-                            (concat cloudsync--remote-testdir "remote.txt"))
-  (message "pushed %s" (concat cloudsync--remote-testdir "remote.txt"))
+;; both changed but no conflicts, merge and update both
+(cloudsync--test-fast-forward 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-fast-forward 'rclone cloudsync--test-goog-cloud-file)
 
-  (cloudsync-push-overwrite (concat cloudsync--local-testdir "remote_conflict.txt")
-                            's3
-                            (concat cloudsync--remote-testdir "remote_conflict.txt"))
-  (message "pushed %s" (concat cloudsync--remote-testdir "remote_conflict.txt"))
+;; both changed, resolve conflicts with ediff and update both
+(cloudsync--test-merge 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-merge 'rclone cloudsync--test-goog-cloud-file)
 
-  "init done")
-
-;; -- push
-(cloudsync-push-overwrite (concat cloudsync--local-testdir "remote.txt")
-                          's3
-                          (concat cloudsync--remote-testdir "remote.txt"))
-
-(cloudsync-push-overwrite (concat cloudsync--local-testdir "remote_conflict.txt")
-                          's3
-                          (concat cloudsync--remote-testdir "remote_conflict.txt"))
-
-;; -- fetch
-(cloudsync-fetch-overwrite (concat cloudsync--local-testdir "remote_copy.txt"))
-
-(cloudsync-fetch-overwrite (concat cloudsync--local-testdir "remote_copy.txt")
-                           's3
-                           (concat cloudsync--remote-testdir "remote.txt"))
-
-(cloudsync-fetch-overwrite (concat cloudsync--local-testdir "remote_copy.txt")
-                           's3
-                           (concat cloudsync--remote-testdir "remote_conflict.txt"))
-
-
-;; -- sync
-
-;; failure: cloud file doesn't exist
-(cloudsync-sync (concat cloudsync--local-testdir "local_no_diff.txt")
-                's3
-                (concat cloudsync--remote-testdir "remote_doesnt_exist.txt"))
-
-;; no diff
-(cloudsync-sync (concat cloudsync--local-testdir "local_no_diff.txt")
-                's3
-                (concat cloudsync--remote-testdir "remote.txt"))
-
-;; no remote changes, just push local
-(cloudsync-sync (concat cloudsync--local-testdir "local_changed.txt")
-                's3
-                (concat cloudsync--remote-testdir "remote.txt"))
-
-;; fast forward (both changed but no conflict; needs ancestor)
-(cloudsync-sync (concat cloudsync--local-testdir "local_one_change.txt")
-                's3
-                (concat cloudsync--remote-testdir "remote_conflict.txt"))
-
-;; merge (needs ancestor)
-(cloudsync-sync (concat cloudsync--local-testdir "local_changed.txt")
-                's3
-                (concat cloudsync--remote-testdir "remote_conflict.txt"))
-
-;; no ancestor merge
-(cloudsync-sync (concat cloudsync--local-testdir "local_no_ancestor.txt")
-                's3
-                (concat cloudsync--remote-testdir "remote.txt"))
+;; both changed, and there's no ancestor file, resolve conflicts with ediff and update both
+(cloudsync--test-no-ancestor-merge 's3 cloudsync--test-s3-cloud-file)
+(cloudsync--test-no-ancestor-merge 'rclone cloudsync--test-goog-cloud-file)
