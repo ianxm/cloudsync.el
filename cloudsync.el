@@ -4,7 +4,7 @@
 
 ;; Author: Ian Martins <ianxm@jhu.edu>
 ;; URL: https://github.com/ianxm/cloudsync.el
-;; Version: 0.0.5
+;; Version: 0.0.6
 ;; Keywords: comm
 ;; Package-Requires: ((emacs "25.2"))
 
@@ -99,12 +99,13 @@ Each entry looks like:
   "A cloud service specific identifier for the cloud file.")
 
 (defvar cloudsync-ediff-buffer-names nil
-  "The names to use for buffers during ediff-merge.")
+  "The names to use for buffers during ‘ediff-merge’.")
 
 (defvar cloudsync-message nil
   "The message to give when exiting ediff to summarize what was done.")
 
-(define-error 'cloudsync--file-not-found "The cloudfile was not found")
+(define-error 'cloudsync--file-not-found
+  "The cloudfile was not found" 'file-missing)
 
 ;; TODO not sure if this will work on windows
 (defun cloudsync--diff (file1 file2)
@@ -252,6 +253,10 @@ These are the possible outcomes:
   nil)
 
 (defun cloudsync--set-ediff-buffer-names ()
+  "Set ediff buffer names.
+This is called for each buffer by ediff during initialization
+after it has created and layed out the buffers (A, B, C).  We use
+it to modify buffer names to \"local, remote, merge\"."
   (rename-buffer (pop cloudsync-ediff-buffer-names)))
 
 ;;;###autoload
@@ -412,37 +417,41 @@ the remote, else return nil."
   (setq cloudsync-window-config nil))
 
 (defun cloudsync--exit-message ()
+  "Set message when CloudSync exists.
+If we start ediff then we have to set the final status message
+here to summarize what we did since any message posted at the end
+of the sync function would have been overwritten by ediff."
   (message cloudsync-message)
   (setq cloudsync-message nil)
   (remove-hook 'ediff-quit-hook #'cloudsync--exit-message))
 
-;; --- aws s3 backend
+;; --- s3 backend
 
 (defgroup cloudsync-s3 nil
-  "Options for customizing how CloudSync connects to S3."
+  "Options for customizing how CloudSync connects to S3 via the AWS CLI."
   :group 'cloudsync
-  :tag "CloudSync S3")
-
-(defcustom cloudsync-s3-enable-sse t
-  "If t, enable server side encryption (uses AES256)."
-  :type 'boolean
-  :group 'cloudsync-s3
-  :tag "CloudSync S3 Enable SSE")
+  :tag "CloudSync AWS S3")
 
 (defcustom cloudsync-s3-profile nil
-  "If set, use the given profile when accessing S3."
+  "If set, use the given profile when accessing S3 via the AWS CLI."
   :type 'string
   :group 'cloudsync-s3
-  :tag "CloudSync S3 Profile")
+  :tag "CloudSync AWS S3 Profile")
 
 (defcustom cloudsync-s3-region nil
-  "If set, use the given region when accessing S3."
+  "If set, use the given region when accessing S3 via the AWS CLI."
   :type 'string
   :group 'cloudsync-s3
-  :tag "CloudSync S3 Region")
+  :tag "CloudSync AWS S3 Region")
+
+(defcustom cloudsync-s3-enable-sse t
+  "If t, enable server side encryption (uses AES256) when accessing S3 via the AWS CLI."
+  :type 'boolean
+  :group 'cloudsync-s3
+  :tag "CloudSync AWS S3 Enable SSE")
 
 (defun cloudsync--s3-params ()
-  "Get the AWS cli params that allow us to override the default profile and region."
+  "Get the AWS CLI params that allow us to override the default profile and region."
   (let ((profile (if cloudsync-s3-profile (concat "--profile " cloudsync-s3-profile " ") ""))
         (region (if cloudsync-s3-region (concat "--region " cloudsync-s3-region " ") "")))
     (concat profile region)))
@@ -486,12 +495,7 @@ CLOUD-FILE looks like \"s3://bucketname/path/filename.ext\"."
         (error "Problem deleting from S3: %s" (buffer-substring (point-min) (point-max)))))))
 
 
-;; --- rclone backend (google drive, dropbox, MS OneDrive, aws s3, etc)
-
-;; (defgroup cloudsync-rclone nil
-;;   "Options for customizing how CloudSync connects using rclone."
-;;   :group 'cloudsync
-;;   :tag "CloudSync Rclone")
+;; --- rclone backend (Google Drive, DropBox, MS OneDrive, AWS S3, etc)
 
 (defun cloudsync--fetch-rclone (fname cloud-file)
   "Fetch using rclone and save to the local filesystem as FNAME.

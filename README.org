@@ -18,9 +18,9 @@
    copy of the file is stored in some cloud service, such as Amazon S3,
    Google Drive, DropBox, etc.
 
-   Currently two backends are supported.
-   - Amazon S3 via the AWS CLI
-   - Google Drive, DropBox, MS OneDrive, Amazon S3, etc via Rclone
+   Currently two backends are supported:
+   - [[https://aws.amazon.com/cli/][AWS CLI]] for [[https://aws.amazon.com/s3/][Amazon S3]]
+   - [[https://rclone.org][Rclone]] for [[https://www.google.com/drive/][Google Drive]], [[https://www.dropbox.com][DropBox]], [[https://onedrive.live.com][MS OneDrive]], [[https://aws.amazon.com/s3/][Amazon S3]], etc
    Either the AWS CLI or Rclone must be installed and configured.
 
 ** Walkthrough
@@ -30,10 +30,10 @@
    Then one day you make some edits to your local and want to push them
    to the cloud so you can get them onto your other computer.
 
-   You run ~M-x cloudsync-sync~ and choose your ~.emacs~ file.  First
-   CloudSync will fetch the latest file from the cloud (the remote
-   file) and compare it to your local file.  If it matches there's
-   nothing to update so it stops there.
+   You run @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-sync~ and
+   choose your ~.emacs~ file.  First CloudSync will fetch the latest
+   file from the cloud (the remote file) and compare it to your local
+   file.  If it matches there's nothing to update so it stops there.
 
    Then it compares the remote file to the last ~.emacs~ file you
    synced from this machine (the ancestor file, which CloudSync has
@@ -86,9 +86,7 @@
 *** Commands
 **** sync
 
-#+BEGIN_SRC
-M-x cloudsync-sync
-#+END_SRC
+    @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-sync~
 
     This prompts for which file to sync and syncs it using a "fetch,
     merge, push" as in the walkthrough above.  Only files configured
@@ -96,9 +94,7 @@ M-x cloudsync-sync
 
 **** fetch
 
-#+BEGIN_SRC
-  M-x cloudsync-fetch-overwrite
-#+END_SRC
+    @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-fetch-overwrite~
 
     This prompts for which configured file to fetch and downloads the
     file from the cloud, overwriting your ~local-file~.  Only files
@@ -107,9 +103,7 @@ M-x cloudsync-sync
 
 **** push
 
-#+BEGIN_SRC
-  M-x cloudsync-push-overwrite
-#+END_SRC
+    @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-push-overwrite~
 
     This prompts for which configured file to push and uploads it to
     the cloud, overwriting your remote file.  Only files configured in
@@ -134,7 +128,7 @@ M-x cloudsync-sync
 
    If you specify the ~local-file~ it looks up the cloud configuration
    in ~cloudsync-files~.  If you evaluate this statement, it'll
-   overwrite ~@@html:~@@html/.emacs~ with the remote file configured in
+   overwrite ~@@html:~@@/.emacs~ with the remote file configured in
    ~cloudsync-files~.
 
 #+BEGIN_SRC
@@ -145,7 +139,7 @@ M-x cloudsync-sync
 
    If you specify all params, the file doesn't need an entry in
    ~cloudsync-files~.  If you evaluate this statement, it'll overwrite
-   ~s3://mybucketname/.emacs~ with your ~@@html:~@@html/.emacs~.
+   ~s3://mybucketname/.emacs~ with your ~@@html:~@@/.emacs~.
 
 #+BEGIN_SRC
 (cloudsync-push-overwrite "~/.emacs" 's3 "s3://mybucketname/.emacs")
@@ -157,7 +151,8 @@ M-x cloudsync-sync
 
     First install cloudsync.el:
     1. Download ~cloudsync.el~ to your local machine.
-    2. Run M-x package-install-file and select ~cloudsync.el~.
+    2. Run @@html:<kbd>@@M-x@@html:</kbd>@@ ~package-install-file~ and
+       select ~cloudsync.el~.
 
 *** Configure your cloud service
 
@@ -169,8 +164,8 @@ M-x cloudsync-sync
         private. Consider enabling Server Side Encryption.
      4. Create an IAM user with read/write access to your bucket. Note
         the access key and secret.
-     5. Configure a profile in your ~@@html:~@@html/.aws/credentials~
-        file for your new IAM user.
+     5. Configure a profile in your ~@@html:~@@/.aws/credentials~ file
+        for your new IAM user.
 
 **** Rclone
 

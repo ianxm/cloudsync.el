@@ -1,2 +1,3 @@
 *.elc
 cloudsync-testparams.el
+testdata/working
