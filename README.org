@@ -128,8 +128,8 @@
 
    If you specify the ~local-file~ it looks up the cloud configuration
    in ~cloudsync-files~.  If you evaluate this statement, it'll
-   overwrite ~@@html:~@@/.emacs~ with the remote file configured in
-   ~cloudsync-files~.
+   overwrite @@html:<code>@@~/.emacs@@html:</code>@@ with the remote
+   file configured in ~cloudsync-files~.
 
 #+BEGIN_SRC
 (cloudsync-fetch-overwrite "~/.emacs")
@@ -139,7 +139,8 @@
 
    If you specify all params, the file doesn't need an entry in
    ~cloudsync-files~.  If you evaluate this statement, it'll overwrite
-   ~s3://mybucketname/.emacs~ with your ~@@html:~@@/.emacs~.
+   ~s3://mybucketname/.emacs~ with your
+   @@html:<code>@@~/.emacs@@html:</code>@@.
 
 #+BEGIN_SRC
 (cloudsync-push-overwrite "~/.emacs" 's3 "s3://mybucketname/.emacs")
@@ -164,8 +165,9 @@
         private. Consider enabling Server Side Encryption.
      4. Create an IAM user with read/write access to your bucket. Note
         the access key and secret.
-     5. Configure a profile in your ~@@html:~@@/.aws/credentials~ file
-        for your new IAM user.
+     5. Configure a profile in your
+        @@html:<code>@@~/.aws/credentials@@html:</code>@@
+     file for your new IAM user.
 
 **** Rclone
 
