@@ -5,9 +5,6 @@
 ;; failure: unknown cloud service
 (cloudsync-sync (concat cloudsync--local-testdir "original.txt") 'fail "remotefile")
 
-;; failure: local-file not found
-(cloudsync-sync "/some/local/file1.txt" 'rclone "remote:dir/file2.txt")
-
 ;; failure: rclone filenames don't matche
 (cloudsync-sync (concat cloudsync--local-testdir "original.txt") 'rclone "remote:dir/original2.txt")
 

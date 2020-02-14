@@ -9,6 +9,12 @@
 ;; -- helpers
 
 (defun cloudsync--setup (orig-local-file orig-ancestor-file cloud-service orig-cloud-file test-cloud-file)
+  "Set up for a test.  Put files in place.
+ORIG-LOCAL-FILE is the file with local file content.
+ORIG-ANCESTOR-FILE is the file with ancestor file content.
+CLOUD-SERVICE is the cloud service to use
+ORIG-CLOUD-FILE is the file with cloud file content
+TEST-CLOUD-FILE is the filename to use for the cloud file request"
   ;; stage or delete ancestor file
   (cond
    ;; file exists and we don't want it, delete it
@@ -38,7 +44,9 @@
    ((and (null orig-local-file) (not (file-exists-p cloudsync--test-local-file))))
    ;; we want the file and we didn't already copy it, copy it
    ((not (string= orig-local-file orig-cloud-file))
-    (copy-file orig-local-file cloudsync--test-local-file t))))
+    (copy-file orig-local-file cloudsync--test-local-file t)))
+
+  (message "setup complete"))
 
 ;; no differences, don't do anything
 (defun cloudsync--test-no-diff (cloud-service cloud-file)

@@ -81,6 +81,68 @@
          files were changed and there were conflicts, and they were not
          resolved.  CloudSync didn't modify the local or remote files.
 
+** Configuration
+
+*** Install CloudSync
+
+    First install cloudsync.el:
+    1. Download ~cloudsync.el~ to your local machine.
+    2. Run @@html:<kbd>@@M-x@@html:</kbd>@@ ~package-install-file~ and
+       select ~cloudsync.el~.
+
+*** Configure your cloud service
+
+**** AWS CLI
+
+     1. Create an AWS account.
+     2. Install the AWS CLI.
+     3. Create an S3 bucket.  It can be either public or
+        private. Consider enabling Server Side Encryption.
+     4. Create an IAM user with read/write access to your bucket. Note
+        the access key and secret.
+     5. Configure a profile in your
+        @@html:<code>@@~/.aws/credentials@@html:</code>@@
+     file for your new IAM user.
+
+**** Rclone
+
+     1. Create an account with the cloud provider (see [[https://rclone.org/docs/][rclone docs]]
+        for a list of supported providers).
+     2. Install rclone.
+     3. Add your remote configuration to rclone.
+
+*** Configure the files you want to sync
+
+  You can configure the files to sync by customizing the
+  ~cloudsync-files~ variable.  ~cloudsync-files~ is an alist of files
+  that can be synced, and their cloud service configuration.  Each
+  list entry should look like:
+
+#+BEGIN_SRC
+  '(filename backend . cloud-file)
+#+END_SRC
+
+  There are currently two backends available:
+  - s3 :: for accessing Amazon S3 via the AWS CLI
+  - rclone :: for using rclone to access any cloud service it supports
+
+  Note that the s3 backend allows the filename of the local and remote
+  files to differ, but the rclone backend requires that are the same.
+  The paths can differ, but the filenames must match.
+
+  This is an example that syncs an emacs init file to S3 and a diary
+  file to some remote configured in Rclone.
+
+#+BEGIN_SRC
+(setq cloudsync-files '(("~/.emacs" s3 . "s3://mybucketname/.emacs")
+                        ("~/.emacs.d/diary" rclone . "myremote:mypath/diary")))
+#+END_SRC
+
+*** Force overwrite confirmation
+
+    You can tell CloudSync to check with you before overwriting
+    anything by customizing ~cloudsync-confirm-before-overwrite~.
+
 ** Usage
 
 *** Commands
@@ -144,63 +206,6 @@
 
 #+BEGIN_SRC
 (cloudsync-push-overwrite "~/.emacs" 's3 "s3://mybucketname/.emacs")
-#+END_SRC
-
-** Configuration
-
-*** Install CloudSync
-
-    First install cloudsync.el:
-    1. Download ~cloudsync.el~ to your local machine.
-    2. Run @@html:<kbd>@@M-x@@html:</kbd>@@ ~package-install-file~ and
-       select ~cloudsync.el~.
-
-*** Configure your cloud service
-
-**** AWS CLI
-
-     1. Create an AWS account.
-     2. Install the AWS CLI.
-     3. Create an S3 bucket.  It can be either public or
-        private. Consider enabling Server Side Encryption.
-     4. Create an IAM user with read/write access to your bucket. Note
-        the access key and secret.
-     5. Configure a profile in your
-        @@html:<code>@@~/.aws/credentials@@html:</code>@@
-     file for your new IAM user.
-
-**** Rclone
-
-     1. Create an account with the cloud provider (see [[https://rclone.org/docs/][rclone docs]]
-        for a list of supported providers).
-     2. Install rclone.
-     3. Add your remote configuration to rclone.
-
-*** Configure the files you want to sync
-
-  You can configure the files to sync by customizing the
-  ~cloudsync-files~ variable.  ~cloudsync-files~ is an alist of files
-  that can be synced, and their cloud service configuration.  Each
-  list entry should look like:
-
-#+BEGIN_SRC
-  '(filename backend . cloud-file)
-#+END_SRC
-
-  There are currently two backends available:
-  - s3 :: for accessing Amazon S3 via the AWS CLI
-  - rclone :: for using rclone to access any cloud service it supports
-
-  Note that the s3 backend allows the filename of the local and remote
-  files to differ, but the rclone backend requires that are the same.
-  The paths can differ, but the filenames must match.
-
-  This is an example that syncs an emacs init file to S3 and a diary
-  file to some remote configured in Rclone.
-
-#+BEGIN_SRC
-(setq cloudsync-files '(("~/.emacs" s3 . "s3://mybucketname/.emacs")
-                        ("~/.emacs.d/diary" rclone . "myremote:mypath/diary")))
 #+END_SRC
 
 ** Todo
