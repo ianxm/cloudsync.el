@@ -52,13 +52,14 @@ For example:
   '((\"~/.emacs\" s3 . \"s3://mybucketname/.emacs\")
     (\"~/diary\" rclone . \"gdrive:diary\"))
 
-The first configuration allows you to sync your .emacs file to S3
-using the AWS CLI.  You must have already created and configured
-your S3 bucket and installed and configured the AWS CLI.
+The first configuration item allows you to sync your .emacs file
+to S3 using the AWS CLI.  You must have already created and
+configured your S3 bucket and installed and configured the AWS
+CLI.
 
-The second configuration allows you to sync your diary file to
-Google Drive (or any other cloud service rclone supports).  You
-must have already installed and configured rclone."
+The second configuration item allows you to sync your diary file
+to Google Drive (or any other cloud service rclone supports).
+You must have already installed and configured rclone."
   :type '(alist :key-type file :value-type (cons string symbol))
   :group 'cloudsync)
 
@@ -77,8 +78,8 @@ cloud file from another machine.")
 (defconst cloudsync-tempfile-dir (file-name-as-directory (concat temporary-file-directory "cloudsync"))
   "The temp subdirectory to put cloud files when we copy them to the local filesystem.")
 
-(defvar cloudsync-backends '((s3 . (cloudsync--fetch-s3 cloudsync--push-s3 cloudsync--delete-s3))
-                             (rclone . (cloudsync--fetch-rclone cloudsync--push-rclone cloudsync--delete-rclone)))
+(defconst cloudsync-backends '((s3 . (cloudsync--fetch-s3 cloudsync--push-s3 cloudsync--delete-s3))
+                               (rclone . (cloudsync--fetch-rclone cloudsync--push-rclone cloudsync--delete-rclone)))
   "An alist of cloud service backends.
 
 Each entry looks like:
@@ -141,7 +142,7 @@ caller."
 
 ;;;###autoload
 (defun cloudsync-sync (&optional local-file cloud-service cloud-file)
-  "Do a \"fetch, merge push\" to sync a local file to the cloud.
+  "Do a \"fetch, merge, push\" to sync a local file to the cloud.
 
 All parameters are optional.  If none are given, the LOCAL-FILE can
 be chosen from one configured in the `cloudsync-files' variable
@@ -161,13 +162,13 @@ These are the possible outcomes:
 
 | situation                    | result         |
 |------------------------------+----------------|
-| local matches remote         | do nothing     |
-| no remote file               | push local     |
-| no local file                | pull remote    |
-| ancestor matches remote      | push local     |
-| ancestor matches local       | pull remote    |
+| local matches cloud          | do nothing     |
+| no cloud file                | push local     |
+| no local file                | pull cloud     |
+| ancestor matches cloud       | push local     |
+| ancestor matches local       | pull cloud     |
 | no merge conflicts           | merge and push |
-| merge matches remote         | merge no push  |
+| merge matches cloud          | merge no push  |
 | merge conflicts resolved     | merge and push |
 | merge conflicts not resolved | do nothing     |"
   (interactive)

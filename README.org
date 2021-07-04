@@ -138,7 +138,7 @@
                         ("~/.emacs.d/diary" rclone . "myremote:mypath/diary")))
 #+END_SRC
 
-*** Force overwrite confirmation
+*** Enable overwrite confirmation
 
     You can tell CloudSync to check with you before overwriting
     anything by customizing ~cloudsync-confirm-before-overwrite~.
@@ -175,7 +175,9 @@
 *** Programmatic interface
 
     All three commands can also be run as lisp functions.  Each
-    function takes either zero, one or three parameters.
+    function takes either zero, one or three parameters.  The
+    possible parameters are ~local-file~, ~cloud-service~,
+    ~cloud-file~.
 
 **** Zero parameters
 
@@ -189,9 +191,9 @@
 **** One parameter
 
    If you specify the ~local-file~ it looks up the cloud configuration
-   in ~cloudsync-files~.  If you evaluate this statement, it'll
-   overwrite @@html:<code>@@~/.emacs@@html:</code>@@ with the remote
-   file configured in ~cloudsync-files~.
+   in ~cloudsync-files~.  If you evaluate the following statement,
+   it'll overwrite @@html:<code>@@~/.emacs@@html:</code>@@ with the
+   remote file configured in ~cloudsync-files~.
 
 #+BEGIN_SRC
 (cloudsync-fetch-overwrite "~/.emacs")
