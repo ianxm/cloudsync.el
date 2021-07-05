@@ -324,26 +324,28 @@ write."
     (if (null backend)
         (error "Unknown cloudsync backend: %s" cloudsync-cloud-service)
 
-      (if (or (not (file-exists-p cloudsync-remote-file))
-              (cloudsync--confirm cloud-file))
+      (if (cloudsync--confirm cloud-file)
           (funcall (nth 1 backend) local-file cloud-file))))
   nil)
 
 ;;;###autoload
-(defun cloudsync-delete (cloud-service cloud-file)
+(defun cloudsync-delete (cloud-service cloud-file &optional ignore-failures)
   "Delete a file from the cloud.
 
 CLOUD-SERVICE is the symbol for the cloud service to which this
 file is synced.  It must match a symbol in `cloudsync-backends'.
 
 CLOUD-FILE is the name of the file within the cloud service to
-write."
+write.
+
+IGNORE-FAILURES if set, ignore error messages.  This is useful
+when deleting a file that may not be there on GDrive."
   (interactive)
 
   (let ((backend (alist-get cloud-service cloudsync-backends)))
     (if (null backend)
         (error "Unknown cloudsync backend: %s" cloudsync-cloud-service)
-      (funcall (nth 2 backend) cloud-file)))
+      (funcall (nth 2 backend) cloud-file ignore-failures)))
   nil)
 
 (defun cloudsync--merge-has-conflicts ()
@@ -506,14 +508,14 @@ CLOUD-FILE looks like \"s3://bucketname/path/filename.ext\"."
           (message "Pushed file to S3: %s" cloud-file)
         (error "Problem uploading to S3: %s" (buffer-substring (point-min) (point-max)))))))
 
-(defun cloudsync--delete-s3 (cloud-file)
+(defun cloudsync--delete-s3 (cloud-file ignore-failure)
   "Delete CLOUD-FILE from S3.
 CLOUD-FILE looks like \"s3://bucketname/path/filename.ext\"."
   (with-temp-buffer
     (let* ((params (cloudsync--s3-params))
            (command (format "aws %s s3 rm %s" params cloud-file))
            (success (call-process-shell-command command nil t)))
-      (if (= 0 success)
+      (if (or ignore-failure (= 0 success))
           (message "Deleted file from S3: %s" cloud-file)
         (error "Problem deleting from S3: %s" (buffer-substring (point-min) (point-max)))))))
 
@@ -536,7 +538,7 @@ differ but the filenames must be the same."
       (if (= 0 success)
           (message "Fetched file using rclone: %s" cloud-file)
         (setq error-msg (buffer-substring (point-min) (point-max)))
-        (if (string-match "Failed to copy: .* directory not found" error-msg)
+        (if (string-match ".* error reading source directory: directory not found" error-msg)
             (signal 'cloudsync--file-not-found error-msg) ; this is the initial sync
           (error "Problem downloading using rclone: %s" error-msg))))))
 
@@ -555,14 +557,14 @@ and remote paths may differ but the filenames must be the same."
           (message "Pushed file using rclone: %s" cloud-file)
         (error "Problem uploading using rclone: %s" (buffer-substring (point-min) (point-max)))))))
 
-(defun cloudsync--delete-rclone (cloud-file)
-  "Push local file FNAME using rclone to CLOUD-FILE.
+(defun cloudsync--delete-rclone (cloud-file ignore-failure)
+  "Delete CLOUD-FILE from rclone path.
 CLOUD-FILE looks like \"remote:path/filename.ext\".  The local
 and remote paths may differ but the filenames must be the same."
   (with-temp-buffer
     (let* ((command (format "rclone delete %s" cloud-file))
            (success (call-process-shell-command command nil t)))
-      (if (= 0 success)
+      (if (or ignore-failure (= 0 success))
           (message "Deleted file using rclone: %s" cloud-file)
         (error "Problem deleting using rclone: %s" (buffer-substring (point-min) (point-max)))))))
 
