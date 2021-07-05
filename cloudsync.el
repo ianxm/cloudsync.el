@@ -212,9 +212,11 @@ These are the possible outcomes:
                 local-file-p
                 (cloudsync--diff cloudsync-local-file cloudsync-remote-file))
            ;; if the local file and remote file both exist and the
-           ;; local file matches the remote file, do nothing
+           ;; local file matches the remote file, just update ancestor
            (if remote-file-p
                (delete-file cloudsync-remote-file))
+           (copy-file cloudsync-local-file cloudsync-ancestor-file t)
+           (set-file-modes cloudsync-ancestor-file #o600)
            (message "No changes; no update needed"))
 
           ((or (not remote-file-p)
