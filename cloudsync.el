@@ -268,7 +268,6 @@ after it has created and layed out the buffers (A, B, C).  We use
 it to modify buffer names to \"local, remote, merge\"."
   (rename-buffer (pop cloudsync-ediff-buffer-names)))
 
-;;;###autoload
 (defun cloudsync-fetch-overwrite (&optional local-file cloud-service cloud-file)
   "Fetch a file from the cloud.  OVERWRITES LOCAL-FILE!
 
@@ -298,7 +297,6 @@ fetch."
           (funcall (nth 0 backend) local-file cloud-file))))
   nil)
 
-;;;###autoload
 (defun cloudsync-push-overwrite (&optional local-file cloud-service cloud-file)
   "Push a file to the cloud. OVERWRITES CLOUD-FILE!
 
@@ -328,7 +326,6 @@ write."
           (funcall (nth 1 backend) local-file cloud-file))))
   nil)
 
-;;;###autoload
 (defun cloudsync-delete (cloud-service cloud-file &optional ignore-failures)
   "Delete a file from the cloud.
 
