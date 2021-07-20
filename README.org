@@ -1,188 +1,196 @@
 * CloudSync
 ** Overview
 
-   [[http://www.gnu.org/software/emacs/][Emacs]] is a text editor.  An extensible one.  It is mainly used for
-   coding, but it can also do anything else.
+[[http://www.gnu.org/software/emacs/][Emacs]] is a text editor.  An extensible one.  It is mainly used for
+coding, but it can also do anything else.
 
-   [[https://github.com/ianxm/cloudsync.el][cloudsync.el]] lets you share a file (say, your .emacs or an org
-   planner file) between computers (say, work and home, or pc and
-   laptop) or between people (say, you and Gus) where you can edit
-   either copy without worrying about overwriting changes made from
-   another copy.  You can do this without cloudsync.el by putting the
-   shared file on a shared drive, or in a git repo, but cloudsync.el
-   makes it a bit easier.
+[[https://github.com/ianxm/cloudsync.el][cloudsync.el]] lets you share a file (say, your .emacs or an org
+planner file) between computers (say, work and home, or pc and
+laptop) or between people (say, you and Gus) where you can edit
+either copy without worrying about overwriting changes made from
+another copy.  You can do this without cloudsync.el by putting the
+shared file on a shared drive, or in a git repo, but cloudsync.el
+makes it a bit easier.
 
-   The idea is to do a "fetch, merge, push" in order to sync the file.
-   By always merging in changes from the current before writing the
-   master file, we can be sure we aren't losing anything.  The master
-   copy of the file is stored in some cloud service, such as Amazon S3,
-   Google Drive, DropBox, etc.
+The idea is to do a "fetch, merge, push" in order to sync the file.
+By always merging in changes from the current before writing the
+master file, we can be sure we aren't losing anything.  The master
+copy of the file is stored in some cloud service, such as Amazon S3,
+Google Drive, DropBox, etc.
 
-   Currently two backends are supported:
-   - [[https://aws.amazon.com/cli/][AWS CLI]] for [[https://aws.amazon.com/s3/][Amazon S3]]
-   - [[https://rclone.org][Rclone]] for [[https://www.google.com/drive/][Google Drive]], [[https://www.dropbox.com][DropBox]], [[https://onedrive.live.com][MS OneDrive]], [[https://aws.amazon.com/s3/][Amazon S3]], etc
-   Either the AWS CLI or Rclone must be installed and configured.
+Currently two backends are supported:
+- [[https://aws.amazon.com/cli/][AWS CLI]] for [[https://aws.amazon.com/s3/][Amazon S3]]
+- [[https://rclone.org][Rclone]] for [[https://www.google.com/drive/][Google Drive]], [[https://www.dropbox.com][DropBox]], [[https://onedrive.live.com][MS OneDrive]], [[https://aws.amazon.com/s3/][Amazon S3]], etc
+  Either the AWS CLI or Rclone must be installed and configured.
 
 ** Walkthrough
 
-   Lets say you want to sync your ~.emacs~ file between computers.  You
-   set up your cloud account and configure CloudSync as shown below.
-   Then one day you make some edits to your local and want to push them
-   to the cloud so you can get them onto your other computer.
+Lets say you want to sync your ~.emacs~ file between computers.  You
+set up your cloud account and configure CloudSync as shown below.
+Then one day you make some edits to your local and want to push them
+to the cloud so you can get them onto your other computer.
 
-   You run @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-sync~ and
-   choose your ~.emacs~ file.  First CloudSync will fetch the latest
-   file from the cloud (the remote file) and compare it to your local
-   file.  If it matches there's nothing to update so it stops there.
+You run @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-sync~ and
+choose your ~.emacs~ file.  First CloudSync will fetch the latest
+file from the cloud (the remote file) and compare it to your local
+file.  If it matches there's nothing to update so it stops there.
 
-   Then it compares the remote file to the last ~.emacs~ file you
-   synced from this machine (the ancestor file, which CloudSync has
-   squirreled away for this reason).  If it matches, we know that all
-   edits since the last sync were made from this computer, so CloudSync
-   can safely push the lastest changes.  It pushes your local to the
-   cloud.
+Then it compares the remote file to the last ~.emacs~ file you
+synced from this machine (the ancestor file, which CloudSync has
+squirreled away for this reason).  If it matches, we know that all
+edits since the last sync were made from this computer, so CloudSync
+can safely push the lastest changes.  It pushes your local to the
+cloud.
 
-   If it does't match, we need to merge changes.  CloudSync will open
-   up ~ediff-merge~.  If there are no conflicts, it'll update your
-   local with the merge changes and push it to the cloud.  If there are
-   conflicts it'll drop you into an ~ediff-merge~ session to resolve
-   them.  When you quit out of ~ediff-merge~, it'll copy the merged
-   changes over your local file and push it to the cloud.
+If it does't match, we need to merge changes.  CloudSync will open
+up ~ediff-merge~.  If there are no conflicts, it'll update your
+local with the merge changes and push it to the cloud.  If there are
+conflicts it'll drop you into an ~ediff-merge~ session to resolve
+them.  When you quit out of ~ediff-merge~, it'll copy the merged
+changes over your local file and push it to the cloud.
 
 *** Possible Outcomes
 
-    The status line message CloudSync displays when it exits explains
-    what was done.  These are the possible messages and their meanings:
+The status line message CloudSync displays when it exits explains
+what was done.  These are the possible messages and their meanings:
 
-    - No changes, no update needed :: The local file and remote file
-         were identical.  CloudSync didn't update either.
-    - No remote changes, pushed local changes :: Only the local file
-         was changed.  CloudSync updated the remote file to match it.
-    - No remote file, pushed local file :: The remote file doesn't
-         exist.  Maybe this is the initial sync.  CloudSync pushed
-         your local file to the cloud.
-    - No local changes, pulled remote changes :: Only the remote file
-         was changed.  CloudSync updated the local file to match it.
-    - No local file, pulled remote file :: The local file doesn't
-         exist.  Maybe this is the initial sync from this computer.
-         CloudSync pulled the file from the cloud to your local.
-    - No local changes after merge, pulled remote changes :: After
-         merging, only the remote file was changed.  CloudSync updated
-         the local file to match it.
-    - Both changed but no conflicts, updated local and remote :: Both
-         files were changed but there were no conflicts.  CloudSync
-         accepted all changes and updated both the local and remote
-         files.
-    - Both changed and conflicts were resolved, updated local and remote :: Both
-         files were changed and there were conflicts, but you manually
-         resolved them in ediff.  CloudSync updated both the local and
-         remote files.
-    - Both changed and conflicts were not resolved, not updating :: Both
-         files were changed and there were conflicts, and they were not
-         resolved.  CloudSync didn't modify the local or remote files.
+- No changes, no update needed :: The local file and remote file
+  were identical.  CloudSync didn't update either.
+- No remote changes, pushed local changes :: Only the local file
+  was changed.  CloudSync updated the remote file to match it.
+- No remote file, pushed local file :: The remote file doesn't
+  exist.  Maybe this is the initial sync.  CloudSync pushed
+  your local file to the cloud.
+- No local changes, pulled remote changes :: Only the remote file
+  was changed.  CloudSync updated the local file to match it.
+- No local file, pulled remote file :: The local file doesn't
+  exist.  Maybe this is the initial sync from this computer.
+  CloudSync pulled the file from the cloud to your local.
+- No local changes after merge, pulled remote changes :: After
+  merging, only the remote file was changed.  CloudSync updated
+  the local file to match it.
+- Both changed but no conflicts, updated local and remote :: Both
+  files were changed but there were no conflicts.  CloudSync
+  accepted all changes and updated both the local and remote
+  files.
+- Both changed and conflicts were resolved, updated local and remote :: Both
+  files were changed and there were conflicts, but you manually
+  resolved them in ediff.  CloudSync updated both the local and
+  remote files.
+- Both changed and conflicts were not resolved, not updating :: Both
+  files were changed and there were conflicts, and they were not
+  resolved.  CloudSync didn't modify the local or remote files.
 
 ** Configuration
 
 *** Install CloudSync
 
-    First install cloudsync.el:
-    1. Download ~cloudsync.el~ to your local machine.
-    2. Run @@html:<kbd>@@M-x@@html:</kbd>@@ ~package-install-file~ and
-       select ~cloudsync.el~.
+First install cloudsync.el:
+1. Download ~cloudsync.el~ to your local machine.
+2. Run @@html:<kbd>@@M-x@@html:</kbd>@@ ~package-install-file~ and
+   select ~cloudsync.el~.
 
 *** Configure your cloud service
 
 **** AWS CLI
 
-     1. Create an AWS account.
-     2. Install the AWS CLI.
-     3. Create an S3 bucket.  It can be either public or
-        private. Consider enabling Server Side Encryption.
-     4. Create an IAM user with read/write access to your bucket. Note
-        the access key and secret.
-     5. Configure a profile in your
-        @@html:<code>@@~/.aws/credentials@@html:</code>@@
-     file for your new IAM user.
+1. Create an AWS account.
+2. Install the AWS CLI.
+3. Create an S3 bucket.  It can be either public or
+   private. Consider enabling Server Side Encryption.
+4. Create an IAM user with read/write access to your bucket. Note
+   the access key and secret.
+5. Configure a profile in your
+   @@html:<code>@@~/.aws/credentials@@html:</code>@@
+   file for your new IAM user.
 
 **** Rclone
 
-     1. Create an account with the cloud provider (see [[https://rclone.org/docs/][rclone docs]]
-        for a list of supported providers).
-     2. Install rclone.
-     3. Add your remote configuration to rclone.
+1. Create an account with the cloud provider (see [[https://rclone.org/docs/][rclone docs]]
+   for a list of supported providers).
+2. Install rclone.
+3. Add your remote configuration to rclone.
 
 *** Configure the files you want to sync
 
-  You can configure the files to sync by customizing the
-  ~cloudsync-files~ variable.  ~cloudsync-files~ is an alist of files
-  that can be synced, and their cloud service configuration.  Each
-  list entry should look like:
+You can configure the files to sync by customizing the
+~cloudsync-files~ variable.  ~cloudsync-files~ is an alist of files
+that can be synced, and their cloud service configuration.  Each
+list entry should look like:
 
 #+BEGIN_SRC
   '(filename backend . cloud-file)
 #+END_SRC
 
-  There are currently two backends available:
+There are currently two backends available:
   - s3 :: for accessing Amazon S3 via the AWS CLI
   - rclone :: for using rclone to access any cloud service it supports
 
-  Note that the s3 backend allows the filename of the local and remote
-  files to differ, but the rclone backend requires that are the same.
-  The paths can differ, but the filenames must match.
+    Note that the s3 backend allows the filename of the local and remote
+    files to differ, but the rclone backend requires that are the same.
+    The paths can differ, but the filenames must match.
 
-  This is an example that syncs an emacs init file to S3 and a diary
-  file to some remote configured in Rclone.
+    This is an example that syncs an emacs init file to S3 and a diary
+    file to some remote configured in Rclone.
 
 #+BEGIN_SRC
 (setq cloudsync-files '(("~/.emacs" s3 . "s3://mybucketname/.emacs")
                         ("~/.emacs.d/diary" rclone . "myremote:mypath/diary")))
 #+END_SRC
 
-*** Enable overwrite confirmation
+*** Options
+**** Overwrite confirmation
 
-    You can tell CloudSync to check with you before overwriting
-    anything by customizing ~cloudsync-confirm-before-overwrite~.
+You can tell CloudSync to check with you before overwriting
+anything by customizing ~cloudsync-confirm-before-overwrite~.
+
+**** Always show diff
+
+By default CloudSync will only show ediff if there are conflicts. You
+can enable ~cloudsync-always-show-diff~ to tell CloudSync show ediff
+any time there are changes so you can see what is changing.  It also
+gives you a chance to edit the merge.
 
 ** Usage
 
 *** Commands
 **** sync
 
-    @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-sync~
+@@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-sync~
 
-    This prompts for which file to sync and syncs it using a "fetch,
-    merge, push" as in the walkthrough above.  Only files configured
-    in ~cloudsync-files~ are available.
+This prompts for which file to sync and syncs it using a "fetch,
+merge, push" as in the walkthrough above.  Only files configured
+in ~cloudsync-files~ are available.
 
 **** fetch
 
-    @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-fetch-overwrite~
+@@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-fetch-overwrite~
 
-    This prompts for which configured file to fetch and downloads the
-    file from the cloud, overwriting your ~local-file~.  Only files
-    configured in ~cloudsync-files~ are available.  THIS OVERWRITES
-    YOUR LOCAL FILE WITHOUT MERGING!
+This prompts for which configured file to fetch and downloads the
+file from the cloud, overwriting your ~local-file~.  Only files
+configured in ~cloudsync-files~ are available.  THIS OVERWRITES
+YOUR LOCAL FILE WITHOUT MERGING!
 
 **** push
 
-    @@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-push-overwrite~
+@@html:<kbd>@@M-x@@html:</kbd>@@ ~cloudsync-push-overwrite~
 
-    This prompts for which configured file to push and uploads it to
-    the cloud, overwriting your remote file.  Only files configured in
-    ~cloudsync-files~ are available.  THIS OVERWRITES THE REMOTE FILE
-    WITHOUT MERGING!
+This prompts for which configured file to push and uploads it to
+the cloud, overwriting your remote file.  Only files configured in
+~cloudsync-files~ are available.  THIS OVERWRITES THE REMOTE FILE
+WITHOUT MERGING!
 
 *** Programmatic interface
 
-    All three commands can also be run as lisp functions.  Each
-    function takes either zero, one or three parameters.  The
-    possible parameters are ~local-file~, ~cloud-service~,
-    ~cloud-file~.
+All three commands can also be run as lisp functions.  Each
+function takes either zero, one or three parameters.  The
+possible parameters are ~local-file~, ~cloud-service~,
+~cloud-file~.
 
 **** Zero parameters
 
-   With zero parameters it prompts for the ~local-file~, just like
-   when run as a command.
+With zero parameters it prompts for the ~local-file~, just like
+when run as a command.
 
 #+BEGIN_SRC
 (cloudsync-sync)
@@ -190,10 +198,10 @@
 
 **** One parameter
 
-   If you specify the ~local-file~ it looks up the cloud configuration
-   in ~cloudsync-files~.  If you evaluate the following statement,
-   it'll overwrite @@html:<code>@@~/.emacs@@html:</code>@@ with the
-   remote file configured in ~cloudsync-files~.
+If you specify the ~local-file~ it looks up the cloud configuration
+in ~cloudsync-files~.  If you evaluate the following statement,
+it'll overwrite @@html:<code>@@~/.emacs@@html:</code>@@ with the
+remote file configured in ~cloudsync-files~.
 
 #+BEGIN_SRC
 (cloudsync-fetch-overwrite "~/.emacs")
@@ -201,14 +209,14 @@
 
 **** Three parameters
 
-   If you specify all params, the file doesn't need an entry in
-   ~cloudsync-files~.  If you evaluate this statement, it'll overwrite
-   ~s3://mybucketname/.emacs~ with your
-   @@html:<code>@@~/.emacs@@html:</code>@@.
+If you specify all params, the file doesn't need an entry in
+~cloudsync-files~.  If you evaluate this statement, it'll overwrite
+~s3://mybucketname/.emacs~ with your
+@@html:<code>@@~/.emacs@@html:</code>@@.
 
 #+BEGIN_SRC
 (cloudsync-push-overwrite "~/.emacs" 's3 "s3://mybucketname/.emacs")
 #+END_SRC
 
 ** Todo
-   - support rclone customizations
+- support rclone customizations

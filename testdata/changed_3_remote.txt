@@ -1,5 +1,0 @@
-some tests
-- test 1
-- test 2
-- test 3 (changed on remote)
-- test 4

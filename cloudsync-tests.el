@@ -12,331 +12,385 @@
 (defconst cloudsync--test-gdrive-cloud-file (concat cloudsync--gdrive-testdir "file.txt")
   "URI of cloud file on google drive")
 
+;; note: Tests only cover cases where ediff isn't started.
+
 ;; tests
 
 (ert-deftest cloudsync/test-s3-create-from-local ()
   "S3: local is a new file, copy to ancestor and cloud files"
-  (cloudsync--run-test
-   "cloudsync/test-s3-create-from-local: original content"
-   nil
-   's3
-   nil
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-create-from-local: original content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-create-from-local: original content"
+     nil
+     's3
+     nil
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-create-from-local: original content")))
 
 (ert-deftest cloudsync/test-gdrive-create-from-local ()
   "GDrive: local is a new file, copy to ancestor and cloud files"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-create-from-local: original content"
-   nil
-   'rclone
-   nil
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-create-from-local: original content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-create-from-local: original content"
+     nil
+     'rclone
+     nil
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-create-from-local: original content")))
 
 (ert-deftest cloudsync/test-s3-create-from-cloud ()
   "S3: cloud is a new file, copy to local and ancestor files"
-  (cloudsync--run-test
-   nil
-   nil
-   's3
-   "cloudsync/test-s3-create-from-cloud: original content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-create-from-cloud: original content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     nil
+     nil
+     's3
+     "cloudsync/test-s3-create-from-cloud: original content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-create-from-cloud: original content")))
 
 (ert-deftest cloudsync/test-gdrive-create-from-cloud ()
   "GDrive: cloud is a new file, copy to local and ancestor files"
-  (cloudsync--run-test
-   nil
-   nil
-   'rclone
-   "cloudsync/test-gdrive-create-from-cloud: original content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-create-from-cloud: original content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     nil
+     nil
+     'rclone
+     "cloudsync/test-gdrive-create-from-cloud: original content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-create-from-cloud: original content")))
 
 (ert-deftest cloudsync/test-s3-no-change ()
   "S3: no differences, do nothing"
-  (cloudsync--run-test
-   "cloudsync/test-s3-no-change: original content"
-   "cloudsync/test-s3-no-change: original content"
-   's3
-   "cloudsync/test-s3-no-change: original content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-no-change: original content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-no-change: original content"
+     "cloudsync/test-s3-no-change: original content"
+     's3
+     "cloudsync/test-s3-no-change: original content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-no-change: original content")))
 
 (ert-deftest cloudsync/test-gdrive-no-change ()
   "GDrive: no differences, do nothing"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-no-change: original content"
-   "cloudsync/test-gdrive-no-change: original content"
-   'rclone
-   "cloudsync/test-gdrive-no-change: original content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-no-change: original content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-no-change: original content"
+     "cloudsync/test-gdrive-no-change: original content"
+     'rclone
+     "cloudsync/test-gdrive-no-change: original content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-no-change: original content")))
 
 (ert-deftest cloudsync/test-s3-add-to-local ()
   "S3: add content to local, sync to cloud"
-  (cloudsync--run-test
-   "cloudsync/test-s3-add-to-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-add-to-local: original content
 new line from local"
-   "cloudsync/test-s3-add-to-local: original content"
-   's3
-   "cloudsync/test-s3-add-to-local: original content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-add-to-local: original content
-new line from local"))
+     "cloudsync/test-s3-add-to-local: original content"
+     's3
+     "cloudsync/test-s3-add-to-local: original content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-add-to-local: original content
+new line from local")))
 
 (ert-deftest cloudsync/test-gdrive-add-to-local ()
   "GDrive: add content to local, sync to cloud"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-add-to-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-add-to-local: original content
 new line from local"
-   "cloudsync/test-gdrive-add-to-local: original content"
-   'rclone
-   "cloudsync/test-gdrive-add-to-local: original content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-add-to-local: original content
-new line from local"))
+     "cloudsync/test-gdrive-add-to-local: original content"
+     'rclone
+     "cloudsync/test-gdrive-add-to-local: original content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-add-to-local: original content
+new line from local")))
 
 (ert-deftest cloudsync/test-s3-add-to-cloud ()
   "S3: add content to cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-s3-add-to-local: original content"
-   "cloudsync/test-s3-add-to-local: original content"
-   's3
-   "cloudsync/test-s3-add-to-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-add-to-local: original content"
+     "cloudsync/test-s3-add-to-local: original content"
+     's3
+     "cloudsync/test-s3-add-to-local: original content
 new line from cloud"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-add-to-local: original content
-new line from cloud"))
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-add-to-local: original content
+new line from cloud")))
 
 (ert-deftest cloudsync/test-gdrive-add-to-cloud ()
   "GDrive: add content to cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-add-to-local: original content"
-   "cloudsync/test-gdrive-add-to-local: original content"
-   'rclone
-   "cloudsync/test-gdrive-add-to-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-add-to-local: original content"
+     "cloudsync/test-gdrive-add-to-local: original content"
+     'rclone
+     "cloudsync/test-gdrive-add-to-local: original content
 new line from cloud"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-add-to-local: original content
-new line from cloud"))
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-add-to-local: original content
+new line from cloud")))
 
 (ert-deftest cloudsync/test-s3-add-to-both-nonoverlap ()
   "S3: add non-overlapping content to both, sync both"
-  (cloudsync--run-test
-   "cloudsync/test-s3-add-to-both-nonoverlap
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-add-to-both-nonoverlap
 local change
 original content
 "
-   "cloudsync/test-s3-add-to-both-nonoverlap
+     "cloudsync/test-s3-add-to-both-nonoverlap
 original content
 "
-   's3
-   "cloudsync/test-s3-add-to-both-nonoverlap
+     's3
+     "cloudsync/test-s3-add-to-both-nonoverlap
 original content
 cloud change
 "
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-add-to-both-nonoverlap
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-add-to-both-nonoverlap
 local change
 original content
 cloud change
-"))
+")))
 
 (ert-deftest cloudsync/test-gdrive-add-to-both-nonoverlap ()
   "GDrive: add non-overlapping content to both, sync both"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-add-to-both-nonoverlap
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-add-to-both-nonoverlap
 local change
 original content
 "
-   "cloudsync/test-gdrive-add-to-both-nonoverlap
+     "cloudsync/test-gdrive-add-to-both-nonoverlap
 original content
 "
-   'rclone
-   "cloudsync/test-gdrive-add-to-both-nonoverlap
+     'rclone
+     "cloudsync/test-gdrive-add-to-both-nonoverlap
 original content
 cloud change
 "
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-add-to-both-nonoverlap
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-add-to-both-nonoverlap
 local change
 original content
 cloud change
-"))
+")))
 
 (ert-deftest cloudsync/test-s3-add-to-both-overlap-same-content ()
   "S3: add overlapping identical content to both, updates ancestor"
-  (cloudsync--run-test
-   "cloudsync/test-s3-add-to-both-overlap-same-content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-add-to-both-overlap-same-content
 original content
 changed by both
 "
-   "cloudsync/test-s3-add-to-both-overlap-same-content
+     "cloudsync/test-s3-add-to-both-overlap-same-content
 original content
 "
-   's3
-   "cloudsync/test-s3-add-to-both-overlap-same-content
+     's3
+     "cloudsync/test-s3-add-to-both-overlap-same-content
 original content
 changed by both
 "
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-add-to-both-overlap-same-content
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-add-to-both-overlap-same-content
 original content
 changed by both
-"))
+")))
 
 (ert-deftest cloudsync/test-gdrive-add-to-both-overlap-same-content ()
   "GDrive: add overlapping identical content to both, updates ancestor"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-add-to-both-overlap-same-content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-add-to-both-overlap-same-content
 original content
 changed by both
 "
-   "cloudsync/test-gdrive-add-to-both-overlap-same-content
+     "cloudsync/test-gdrive-add-to-both-overlap-same-content
 original content
 "
-   'rclone
-   "cloudsync/test-gdrive-add-to-both-overlap-same-content
+     'rclone
+     "cloudsync/test-gdrive-add-to-both-overlap-same-content
 original content
 changed by both
 "
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-add-to-both-overlap-same-content
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-add-to-both-overlap-same-content
 original content
 changed by both
-"))
+")))
 
 (ert-deftest cloudsync/test-s3-remove-from-local ()
   "S3: remove content from local, sync to cloud"
-  (cloudsync--run-test
-   "cloudsync/test-s3-remove-from-local: original content"
-   "cloudsync/test-s3-remove-from-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-remove-from-local: original content"
+     "cloudsync/test-s3-remove-from-local: original content
 remove this"
-   's3
-   "cloudsync/test-s3-remove-from-local: original content
+     's3
+     "cloudsync/test-s3-remove-from-local: original content
 remove this"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-remove-from-local: original content"))
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-remove-from-local: original content")))
 
 (ert-deftest cloudsync/test-gdrive-remove-from-local ()
   "GDrive: remove content from local, sync to cloud"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-remove-from-local: original content"
-   "cloudsync/test-gdrive-remove-from-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-remove-from-local: original content"
+     "cloudsync/test-gdrive-remove-from-local: original content
 remove this"
-   'rclone
-   "cloudsync/test-gdrive-remove-from-local: original content
+     'rclone
+     "cloudsync/test-gdrive-remove-from-local: original content
 remove this"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-remove-from-local: original content"))
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-remove-from-local: original content")))
 
 (ert-deftest cloudsync/test-s3-remove-from-cloud ()
   "S3: remove content from cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-s3-remove-from-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-remove-from-local: original content
 remove this"
-   "cloudsync/test-s3-remove-from-local: original content
+     "cloudsync/test-s3-remove-from-local: original content
 remove this"
-   's3
-   "cloudsync/test-s3-remove-from-local: original content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-remove-from-local: original content"))
+     's3
+     "cloudsync/test-s3-remove-from-local: original content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-remove-from-local: original content")))
 
 (ert-deftest cloudsync/test-gdrive-remove-from-cloud ()
   "GDrive: remove content from cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-remove-from-local: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-remove-from-local: original content
 remove this"
-   "cloudsync/test-gdrive-remove-from-local: original content
+     "cloudsync/test-gdrive-remove-from-local: original content
 remove this"
-   'rclone
-   "cloudsync/test-gdrive-remove-from-local: original content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-remove-from-local: original content"))
+     'rclone
+     "cloudsync/test-gdrive-remove-from-local: original content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-remove-from-local: original content")))
 
 (ert-deftest cloudsync/test-s3-remove-from-both-same-content ()
   "S3: remove content from cloud and local, update ancestor"
-  (cloudsync--run-test
-   "cloudsync/test-s3-remove-from-both-same-content: original content"
-   "cloudsync/test-s3-remove-from-both-same-content: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-remove-from-both-same-content: original content"
+     "cloudsync/test-s3-remove-from-both-same-content: original content
 remove this"
-   's3
-   "cloudsync/test-s3-remove-from-both-same-content: original content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-remove-from-both-same-content: original content"))
+     's3
+     "cloudsync/test-s3-remove-from-both-same-content: original content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-remove-from-both-same-content: original content")))
 
 (ert-deftest cloudsync/test-gdrive-remove-from-both-same-content ()
   "GDrive: remove content from cloud and local, update ancestor"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-remove-from-both-same-content: original content"
-   "cloudsync/test-gdrive-remove-from-both-same-content: original content
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-remove-from-both-same-content: original content"
+     "cloudsync/test-gdrive-remove-from-both-same-content: original content
 remove this"
-   'rclone
-   "cloudsync/test-gdrive-remove-from-both-same-content: original content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-remove-from-both-same-content: original content"))
+     'rclone
+     "cloudsync/test-gdrive-remove-from-both-same-content: original content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-remove-from-both-same-content: original content")))
 
 (ert-deftest cloudsync/test-s3-change-from-local ()
   "S3: change content in local, sync to cloud"
-  (cloudsync--run-test
-   "cloudsync/test-s3-change-from-local: modified content"
-   "cloudsync/test-s3-change-from-local: original content"
-   's3
-   "cloudsync/test-s3-change-from-local: original content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-change-from-local: modified content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-change-from-local: modified content"
+     "cloudsync/test-s3-change-from-local: original content"
+     's3
+     "cloudsync/test-s3-change-from-local: original content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-change-from-local: modified content")))
 
 (ert-deftest cloudsync/test-gdrive-change-from-local ()
   "GDrive: change content in local, sync to cloud"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-change-from-local: modified content"
-   "cloudsync/test-gdrive-change-from-local: original content"
-   'rclone
-   "cloudsync/test-gdrive-change-from-local: original content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-change-from-local: modified content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-change-from-local: modified content"
+     "cloudsync/test-gdrive-change-from-local: original content"
+     'rclone
+     "cloudsync/test-gdrive-change-from-local: original content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-change-from-local: modified content")))
 
 (ert-deftest cloudsync/test-s3-change-from-cloud ()
   "S3: change content in cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-s3-change-from-local: original content"
-   "cloudsync/test-s3-change-from-local: original content"
-   's3
-   "cloudsync/test-s3-change-from-local: modified content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-change-from-local: modified content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-change-from-local: original content"
+     "cloudsync/test-s3-change-from-local: original content"
+     's3
+     "cloudsync/test-s3-change-from-local: modified content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-change-from-local: modified content")))
 
 (ert-deftest cloudsync/test-gdrive-change-from-cloud ()
   "GDrive: change content in cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-change-from-cloud: original content"
-   "cloudsync/test-gdrive-change-from-cloud: original content"
-   'rclone
-   "cloudsync/test-gdrive-change-from-cloud: modified content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-change-from-cloud: modified content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-change-from-cloud: original content"
+     "cloudsync/test-gdrive-change-from-cloud: original content"
+     'rclone
+     "cloudsync/test-gdrive-change-from-cloud: modified content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-change-from-cloud: modified content")))
 
 (ert-deftest cloudsync/test-s3-change-from-both-same-content ()
   "S3: change content in cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-s3-change-from-both-same-content: modified content"
-   "cloudsync/test-s3-change-from-both-same-content: original content"
-   's3
-   "cloudsync/test-s3-change-from-both-same-content: modified content"
-   cloudsync--test-s3-cloud-file
-   "cloudsync/test-s3-change-from-both-same-content: modified content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-s3-change-from-both-same-content: modified content"
+     "cloudsync/test-s3-change-from-both-same-content: original content"
+     's3
+     "cloudsync/test-s3-change-from-both-same-content: modified content"
+     cloudsync--test-s3-cloud-file
+     "cloudsync/test-s3-change-from-both-same-content: modified content")))
 
 (ert-deftest cloudsync/test-gdrive-change-from-both-same-content ()
   "GDrive: change content in cloud, sync to local"
-  (cloudsync--run-test
-   "cloudsync/test-gdrive-change-from-both-same-content: modified content"
-   "cloudsync/test-gdrive-change-from-both-same-content: original content"
-   'rclone
-   "cloudsync/test-gdrive-change-from-both-same-content: modified content"
-   cloudsync--test-gdrive-cloud-file
-   "cloudsync/test-gdrive-change-from-both-same-content: modified content"))
+  (let ((cloudsync-always-show-diff nil)
+        (cloudsync-confirm-before-overwrite nil))
+    (cloudsync--run-test
+     "cloudsync/test-gdrive-change-from-both-same-content: modified content"
+     "cloudsync/test-gdrive-change-from-both-same-content: original content"
+     'rclone
+     "cloudsync/test-gdrive-change-from-both-same-content: modified content"
+     cloudsync--test-gdrive-cloud-file
+     "cloudsync/test-gdrive-change-from-both-same-content: modified content")))
 
 ;; TODO merge (with ancestor)
 ;; TODO no ancestor merge

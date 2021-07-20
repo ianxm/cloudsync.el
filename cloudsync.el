@@ -68,6 +68,13 @@ You must have already installed and configured rclone."
   :type 'boolean
   :group 'cloudsync)
 
+(defcustom cloudsync-always-show-diff nil
+  "If t, always show the diff if there are any changes.
+Otherwise cloudsync will only show a diff if there are merge
+conflicts."
+  :type 'boolean
+  :group 'cloudsync)
+
 (defconst cloudsync-ancestor-dir (file-name-as-directory
                                   (concat (file-name-as-directory user-emacs-directory) "cloudsync"))
   "The directory where we save ancestor files.
@@ -114,7 +121,7 @@ Each entry looks like:
   "The cloudfile was not found" 'file-missing)
 
 ;; TODO not sure if this will work on windows
-(defun cloudsync--diff (file1 file2)
+(defun cloudsync--diff-p (file1 file2)
   "Return t if FILE1 and FILE2 are identical."
   (if (or (null file1) (null file2))
       (error "One of the files to diff is null: (%s, %s)" file1 file2)
@@ -206,60 +213,79 @@ These are the possible outcomes:
 
     (cond ((and (not local-file-p) (not remote-file-p))
            ;; no local file and no remote file, do nothing
-           (error "Neither local or remote file exists, nothing to sync"))
+           (error "Neither local nor remote file exists, nothing to sync"))
 
           ((and remote-file-p
                 local-file-p
-                (cloudsync--diff cloudsync-local-file cloudsync-remote-file))
+                (cloudsync--diff-p cloudsync-local-file cloudsync-remote-file))
            ;; if the local file and remote file both exist and the
            ;; local file matches the remote file, just update ancestor
-           (if remote-file-p
-               (delete-file cloudsync-remote-file))
            (copy-file cloudsync-local-file cloudsync-ancestor-file t)
            (set-file-modes cloudsync-ancestor-file #o600)
+           (if remote-file-p
+               (delete-file cloudsync-remote-file))
            (message "No changes; no update needed"))
 
           ((or (not remote-file-p)
                (and ancestor-file-p
-                    (cloudsync--diff cloudsync-ancestor-file cloudsync-remote-file)))
+                    (cloudsync--diff-p cloudsync-ancestor-file cloudsync-remote-file)))
             ;; if there's no remote file, or there is an ancestor file
             ;; and remote file and they match, no need to merge, just
             ;; push the update
-            (cloudsync--save-changes)
-            (if (not remote-file-p)
-                (message "No remote file, pushed local file")
-              (delete-file cloudsync-remote-file)
-              (message "No remote changes, pushed local changes")))
+           (setq cloudsync-message "No remote changes, pushed local changes")
+           (cond
+            ((and cloudsync-always-show-diff remote-file-p) ; diff && remote
+             (add-hook 'ediff-cleanup-hook #'cloudsync--done-hopefully)
+             (cloudsync--launch-ediff ancestor-file-p))
+            (remote-file-p                                  ; !diff && remote
+             (cloudsync--save-changes)
+             (delete-file cloudsync-remote-file)
+             (message cloudsync-message)
+             (setq cloudsync-message ""))
+            (t                                              ; !remote
+             (message "No remote file, pushed local file")
+             (cloudsync--save-changes))))
 
           ((or (not local-file-p)
                (and ancestor-file-p
-                    (cloudsync--diff cloudsync-ancestor-file cloudsync-local-file)))
-            ;; if there's no local file, or there is an ancestor file
-            ;; which matches local file, no need to merge, just pull
-            ;; the update
-           (cloudsync-fetch-overwrite cloudsync-local-file
-                                      cloudsync-cloud-service
-                                      cloudsync-cloud-file)
-           ;; overwrite ancestor-file and remove the temp file
-           (copy-file cloudsync-local-file cloudsync-ancestor-file t)
-           (set-file-modes cloudsync-ancestor-file #o600)
+                    (cloudsync--diff-p cloudsync-ancestor-file cloudsync-local-file)))
+           ;; if there's no local file, or there is an ancestor file
+           ;; which matches local file, no need to merge, just pull
+           ;; the update
+           (setq cloudsync-message "No local changes, pulled remote changes")
+           (if (and cloudsync-always-show-diff local-file-p)
+               (progn (add-hook 'ediff-cleanup-hook #'cloudsync--done-hopefully)
+                      (cloudsync--launch-ediff ancestor-file-p))
+             (cloudsync-fetch-overwrite cloudsync-local-file
+                                        cloudsync-cloud-service
+                                        cloudsync-cloud-file)
+             ;; overwrite ancestor-file
+             (copy-file cloudsync-local-file cloudsync-ancestor-file t)
+             (set-file-modes cloudsync-ancestor-file #o600)
+             (if local-file-p
+                 (message cloudsync-message)
+               (message "No local file, pulled remote file"))
+             (setq cloudsync-message ""))
            (if (file-exists-p cloudsync-remote-file)
-               (delete-file cloudsync-remote-file))
-           (if local-file-p
-               (message "No local changes, pulled remote changes")
-             (message "No local file, pulled remote file")))
+               (delete-file cloudsync-remote-file)))
 
           (t
-            ;; else merge and push
-            (add-hook 'ediff-startup-hook #'cloudsync--done-maybe)
-            (add-hook 'ediff-quit-hook #'cloudsync--exit-message t)
-            (setq cloudsync-ediff-buffer-names '("local" "remote" "merge" "ancestor"))
-            (add-hook 'ediff-prepare-buffer-hook #'cloudsync--set-ediff-buffer-names)
-            (setq cloudsync-window-config (current-window-configuration))
-            (if ancestor-file-p
-                (ediff-merge-files-with-ancestor cloudsync-local-file cloudsync-remote-file cloudsync-ancestor-file)
-              (ediff-merge-files cloudsync-local-file cloudsync-remote-file)))))
-  nil)
+           ;; else merge and push
+           (if cloudsync-always-show-diff
+               (add-hook 'ediff-cleanup-hook #'cloudsync--done-hopefully)
+             (add-hook 'ediff-startup-hook #'cloudsync--done-maybe))
+           (setq cloudsync-message "Both changed, updated local and remote")
+           (cloudsync--launch-ediff ancestor-file-p)))
+    nil))
+
+(defun cloudsync--launch-ediff (ancestor-file-p)
+  (setq cloudsync-ediff-buffer-names '("local" "remote" "merge" "ancestor"))
+  (add-hook 'ediff-prepare-buffer-hook #'cloudsync--set-ediff-buffer-names)
+  (add-hook 'ediff-quit-hook #'cloudsync--exit-message t)
+  (setq cloudsync-window-config (current-window-configuration))
+  (if ancestor-file-p
+      (ediff-merge-files-with-ancestor cloudsync-local-file cloudsync-remote-file cloudsync-ancestor-file)
+    (ediff-merge-files cloudsync-local-file cloudsync-remote-file)))
 
 (defun cloudsync--set-ediff-buffer-names ()
   "Set ediff buffer names.
@@ -284,18 +310,29 @@ CLOUD-SERVICE is the symbol for the cloud service to which this
 file is synced.  It must match a symbol in `cloudsync-backends'.
 
 CLOUD-FILE is the name of the file within the cloud service to
-fetch."
+fetch.
+
+Returns t if we write the local file."
   (interactive)
 
   (cloudsync--fill-in-params)
 
-  (let ((backend (alist-get cloud-service cloudsync-backends)))
+  (let ((backend (alist-get cloud-service cloudsync-backends))
+        (overwrite-local-p t))
     (if (null backend)
         (error "Unknown cloudsync backend: %s" cloud-service)
-      (if (or (not (file-exists-p local-file))
-              (cloudsync--confirm local-file))
-          (funcall (nth 0 backend) local-file cloud-file))))
-  nil)
+
+      (when (file-exists-p local-file) ; only prompt for confirmation if file exists
+        (setq overwrite-local-p (cloudsync--confirm local-file)))
+      (if (not overwrite-local-p)
+          ;; `fetch-overwrite' is called for `remote-file' also, but
+          ;; in that case there should never be an existing file
+          (progn
+            (if (string-empty-p cloudsync-message)
+                (message "Skipped local file overwrite")
+              (setq cloudsync-message (concat cloudsync-message "... Skipped local file overwrite")))
+            nil)
+        (funcall (nth 0 backend) local-file cloud-file)))))
 
 (defun cloudsync-push-overwrite (&optional local-file cloud-service cloud-file)
   "Push a file to the cloud. OVERWRITES CLOUD-FILE!
@@ -313,7 +350,9 @@ CLOUD-SERVICE is the symbol for the cloud service to which this
 file is synced.  It must match a symbol in `cloudsync-backends'.
 
 CLOUD-FILE is the name of the file within the cloud service to
-write."
+write.
+
+Returns t if we write the cloud file."
   (interactive)
 
   (cloudsync--fill-in-params)
@@ -323,8 +362,11 @@ write."
         (error "Unknown cloudsync backend: %s" cloudsync-cloud-service)
 
       (if (cloudsync--confirm cloud-file)
-          (funcall (nth 1 backend) local-file cloud-file))))
-  nil)
+          (funcall (nth 1 backend) local-file cloud-file)
+        (if (string-empty-p cloudsync-message)
+            (message "Skipped cloud file overwrite")
+          (setq cloudsync-message (concat cloudsync-message "... Skipped cloud file overwrite")))
+        nil))))
 
 (defun cloudsync-delete (cloud-service cloud-file &optional ignore-failures)
   "Delete a file from the cloud.
@@ -363,7 +405,8 @@ user is presented with the ediff interface."
     ;; overwrite local-file
     (if (cloudsync--save-changes)
         (message "Both changed but no conflicts, updated local and remote")
-      (message "No local changes after merge, pulled remote changes")) ; this shouldn't happen
+      (message "No local changes after merge, pulled remote changes"))
+
     ;; not sure this is fine to do.  ediff just started up and now
     ;; we're killing it without running `ediff-really-quit' to let it
     ;; shutdown gracefully.  There may be side effects or this may not
@@ -375,16 +418,13 @@ user is presented with the ediff interface."
 This is called after the user quits from the ediff interface.  If
 any merge conflicts remain, do not upload the file."
   (remove-hook 'ediff-cleanup-hook #'cloudsync--done-hopefully)
-  (cond ((cloudsync--merge-has-conflicts)
-         ;; conflicts not resolved
-         (setq cloudsync-message "Both changed and conflicts were not resolved, not updating")
-         (cloudsync--clean-up))
-        (t
-         ;; conflicts resolved
-         (if (cloudsync--save-changes)
-             (setq cloudsync-message "Both changed and conflicts were resolved, updated local and remote")
-           (setq cloudsync-message "No local changes after merge, pulled remote changes"))
-         (cloudsync--clean-up))))
+  (if (cloudsync--merge-has-conflicts)
+      (progn                      ; conflicts not resolved
+        (setq cloudsync-message "Conflicts were not resolved, not updating")
+        (cloudsync--clean-up))
+    ;; use the `cloudsync-message' set by the caller
+    (cloudsync--save-changes)     ; conflicts resolved
+    (cloudsync--clean-up)))
 
 (defun cloudsync--confirm (fname)
   "If `confirm-before-overwrite' is enabled, check if we should write.
@@ -400,23 +440,25 @@ Overwrite the local file with merge changes.  Overwrite the
 ancestor file and cloud file if necessary.  Return t if we update
 the remote, else return nil."
   ;; if there is a merge buffer, write it to the local-file
-  (if (and ediff-buffer-C
-           (cloudsync--confirm cloudsync-local-file))
-      (with-current-buffer ediff-buffer-C
-        (write-region (point-min) (point-max) cloudsync-local-file nil)))
+  (let ((overwrite-local-p t))
+    (when ediff-buffer-C ; only prompt for confirmation if there is something to save
+      (setq overwrite-local-p (cloudsync--confirm cloudsync-local-file)))
+    (cond ((and ediff-buffer-C overwrite-local-p)
+           (with-current-buffer ediff-buffer-C
+             (write-region (point-min) (point-max) cloudsync-local-file nil)))
+          ((not overwrite-local-p)
+           (setq cloudsync-message (concat cloudsync-message "... Skipped local file overwrite"))))
 
-  (if (and (file-exists-p cloudsync-remote-file)
-           (cloudsync--diff cloudsync-local-file cloudsync-remote-file))
-      nil
-    ;; overwrite ancestor-file
-    (copy-file cloudsync-local-file cloudsync-ancestor-file t)
-    (set-file-modes cloudsync-ancestor-file #o600)
-
-    ;; overwrite cloud-file
-    (cloudsync-push-overwrite cloudsync-local-file
-                              cloudsync-cloud-service
-                              cloudsync-cloud-file)
-    t))
+    (when (or (not (file-exists-p cloudsync-remote-file))
+              (not (cloudsync--diff-p cloudsync-local-file cloudsync-remote-file)))
+      ;; overwrite cloud-file
+      (when (cloudsync-push-overwrite cloudsync-local-file
+                                      cloudsync-cloud-service
+                                      cloudsync-cloud-file)
+        ;; overwrite ancestor-file
+        (copy-file cloudsync-local-file cloudsync-ancestor-file t)
+        (set-file-modes cloudsync-ancestor-file #o600))
+      t)))
 
 (defun cloudsync--clean-up ()
   "Delete temp file, clean up ediff buffers and reset the window configuration."
@@ -433,6 +475,7 @@ the remote, else return nil."
       (kill-buffer ediff-control-buffer))
 
   (remove-hook 'ediff-prepare-buffer-hook #'cloudsync--set-ediff-buffer-names)
+  (remove-hook 'ediff-quit-hook #'cloudsync--clean-up)
 
   ;; reset window configuration
   (set-window-configuration cloudsync-window-config)
